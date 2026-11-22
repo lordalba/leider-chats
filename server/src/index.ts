@@ -1,5 +1,7 @@
+// Must stay the first import: CommonJS runs imports before this file's body,
+// and modules such as config/jwt read process.env at load time.
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
@@ -13,8 +15,6 @@ import workspaceRouter from "./routes/workspaces/WorkspaceRoutes";
 import mediaUploadRoutes from "./utils/MediaUploader";
 import socketHandlers from "./socketHandlers";
 import path from "path";
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);

@@ -2,8 +2,7 @@ import { Request, Response } from "express";
 import User from "../models/User"; // Assuming you have a User model
 import bcrypt from "bcrypt"; // For password hashing
 import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";
+import { JWT_SECRET } from "../config/jwt";
 
 export const registerUser = async (
   req: Request,

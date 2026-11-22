@@ -12,6 +12,8 @@ import User from "../../src/models/User";
 
 let server: Awaited<ReturnType<typeof startTestServer>>;
 let clients: ClientSocket[] = [];
+// Focus ids must be ObjectId strings.
+const FOCUS_ID = "507f1f77bcf86cd799439011";
 
 beforeAll(async () => {
   jest.spyOn(console, "log").mockImplementation(() => {});
@@ -185,7 +187,7 @@ test("C join → forbidden and C receives no presence events", async () => {
   expect(await C.emitWithAck("workspace:join", wsId)).toEqual({ ok: false, error: "forbidden" });
   const none = expectNoEvent(C, "workspace:presence");
   await A.emitWithAck("workspace:join", wsId);
-  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" });
+  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: FOCUS_ID });
   await none;
 });
 
@@ -198,10 +200,10 @@ test('A focus {kind:"task",id} → B\'s presence shows A\'s focus', async () => 
   const focused = waitFor(B, "workspace:presence", (p: any) =>
     p.members.some((m: any) => m.userId === String(alice._id) && m.focus)
   );
-  expect(await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" })).toEqual({ ok: true, data: null });
+  expect(await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: FOCUS_ID })).toEqual({ ok: true, data: null });
   const p = await focused;
   const a = p.members.find((m: any) => m.userId === String(alice._id));
-  expect(a.focus).toEqual({ kind: "task", id: "t1" });
+  expect(a.focus).toEqual({ kind: "task", id: FOCUS_ID });
 });
 
 test("A disconnects → B receives presence with 1 member", async () => {
@@ -267,7 +269,7 @@ test("B removed from chat (emit removeParticipantFromChat) → B receives worksp
 
   // B really left ws:<id>: A's focus broadcast must not reach B.
   const none = expectNoEvent(B, "workspace:presence");
-  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" });
+  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: FOCUS_ID });
   await none;
 });
 
@@ -294,7 +296,7 @@ test("eviction race: B evicted while its join is in flight → join acks forbidd
   expect(WorkspacePresenceService.members(wsId).map((m) => m.userId)).not.toContain(String(bob._id));
   const none = expectNoEvent(B, "workspace:presence");
   const aSees = waitFor(A, "workspace:presence");
-  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" });
+  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: FOCUS_ID });
   expect((await aSees).members).toHaveLength(1);
   await none;
 });
@@ -322,7 +324,7 @@ test("disconnect race: B disconnects while its join is in flight → no ghost pr
 
   expect(WorkspacePresenceService.members(wsId).map((m) => m.userId)).toEqual([String(alice._id)]);
   const aSees = waitFor(A, "workspace:presence");
-  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" });
+  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: FOCUS_ID });
   expect((await aSees).members.map((m: any) => m.userId)).toEqual([String(alice._id)]);
 });
 
@@ -375,4 +377,91 @@ test("deleteRoom → workspaces of that chat are deleted and joined sockets get 
     await new Promise((r) => setTimeout(r, 25));
   }
   expect(await Workspace.countDocuments()).toBe(0);
+});
+
+test("focus id must be a 24-hex ObjectId string, otherwise invalid", async () => {
+  const { chatId, A } = await setup();
+  const wsId = await makeWorkspace(A, chatId);
+  await A.emitWithAck("workspace:join", wsId);
+  for (const id of ["t1", "", "zzzzzzzzzzzzzzzzzzzzzzzz", "507f1f77bcf86cd79943901", 42]) {
+    expect(await A.emitWithAck("workspace:focus", wsId, { kind: "task", id })).toEqual({
+      ok: false,
+      error: "invalid",
+    });
+  }
+  expect(await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: FOCUS_ID })).toEqual({
+    ok: true,
+    data: null,
+  });
+});
+
+test("leave by a socket that never joined acks ok and members receive no presence event", async () => {
+  const { chatId, A, B } = await setup();
+  const wsId = await makeWorkspace(A, chatId);
+  await A.emitWithAck("workspace:join", wsId);
+  const none = expectNoEvent(A, "workspace:presence");
+  expect(await B.emitWithAck("workspace:leave", wsId)).toEqual({ ok: true, data: null });
+  await none;
+  expect(WorkspacePresenceService.members(wsId)).toHaveLength(1);
+});
+
+describe("legacy chat events are gated by the authenticated user", () => {
+  let warn: jest.SpyInstance;
+  beforeEach(() => {
+    warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => warn.mockRestore());
+
+  async function waitForWarn() {
+    for (let i = 0; i < 80 && warn.mock.calls.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(warn).toHaveBeenCalled();
+  }
+
+  test("non-admin deleteRoom: chat and its workspaces still exist", async () => {
+    const { bob, chat, chatId, A, B } = await setup();
+    const wsId = await makeWorkspace(A, chatId);
+    await A.emitWithAck("workspace:join", wsId);
+
+    const noRevoke = expectNoEvent(A, "workspace:revoked");
+    B.emit("deleteRoom", chatId, String(bob._id));
+    await waitForWarn();
+    await noRevoke;
+
+    expect(await ChatRoom.exists({ _id: chat._id })).not.toBeNull();
+    expect(await Workspace.countDocuments()).toBe(1);
+  });
+
+  test("unauthenticated removeParticipantFromChat: no eviction", async () => {
+    const { bob, chat, chatId, A, B } = await setup();
+    const wsId = await makeWorkspace(A, chatId);
+    await B.emitWithAck("workspace:join", wsId);
+
+    const anon = await connectAs(server.url, null);
+    clients.push(anon);
+    const noRevoke = expectNoEvent(B, "workspace:revoked");
+    anon.emit("removeParticipantFromChat", chatId, String(bob._id), "bob", "mallory");
+    await waitForWarn();
+    await noRevoke;
+
+    const fresh = await ChatRoom.findById(chat._id);
+    expect(fresh!.participants.map(String)).toContain(String(bob._id));
+    expect(await B.emitWithAck("workspace:focus", wsId, null)).toEqual({ ok: true, data: null });
+  });
+
+  test("exitRoom with someone else's userId: no change", async () => {
+    const { bob, chat, chatId, A, B } = await setup();
+    const wsId = await makeWorkspace(A, chatId);
+    await B.emitWithAck("workspace:join", wsId);
+
+    const noRevoke = expectNoEvent(B, "workspace:revoked");
+    A.emit("exitRoom", chatId, String(bob._id), "bob");
+    await waitForWarn();
+    await noRevoke;
+
+    const fresh = await ChatRoom.findById(chat._id);
+    expect(fresh!.participants.map(String)).toContain(String(bob._id));
+    expect(await Workspace.countDocuments()).toBe(1);
+  });
 });

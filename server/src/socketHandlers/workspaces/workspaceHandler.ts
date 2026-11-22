@@ -30,7 +30,7 @@ function parseFocus(focus: unknown): Focus | null {
     typeof focus === "object" &&
     FOCUS_KINDS.includes((focus as Focus).kind) &&
     typeof (focus as Focus).id === "string" &&
-    (focus as Focus).id.length > 0
+    /^[0-9a-fA-F]{24}$/.test((focus as Focus).id)
   ) {
     return { kind: (focus as Focus).kind, id: (focus as Focus).id };
   }
@@ -122,6 +122,9 @@ const workspaceHandler = (io: Server, socket: Socket) => {
     "workspace:leave",
     withAck(socket, async (_userId, workspaceId: string) => {
       const id = String(toObjectId(workspaceId));
+      // A socket that never joined has no presence to remove; skip the
+      // rebroadcast so outsiders cannot trigger presence events.
+      if (!socket.rooms.has(wsRoom(id))) return null;
       socket.leave(wsRoom(id));
       WorkspacePresenceService.leave(id, socket.id);
       broadcastPresence(io, id);
