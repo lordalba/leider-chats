@@ -4,10 +4,20 @@ import { saveChatMessage } from "../services/ChatRoomService";
 import { usersInChatRooms } from "./chatRoomHandler";
 import { OnlineUserService } from "../services/OnlineUserService";
 import ChatRoom from "../models/chatrooms/ChatRoom";
+import { canSendMessage } from "./chatAuth";
 
 const messageHandler = (io: Server, socket: Socket) => {
   socket.on("sendMessage", async (message) => {
     const { chatRoomId, senderId, content, type, fileName, mediaUrl } = message;
+
+    if (
+      !socket.data.userId ||
+      String(socket.data.userId) !== String(senderId) ||
+      !(await canSendMessage(socket, chatRoomId))
+    ) {
+      console.warn(`sendMessage refused for socket ${socket.id}: not allowed to post in this chat`);
+      return;
+    }
 
     const messageToSend = await saveChatMessage(
       chatRoomId,
@@ -37,6 +47,10 @@ const messageHandler = (io: Server, socket: Socket) => {
 
   socket.on("typing", (data) => {
     const { chatroomId, userId, username } = data;
+    if (!socket.data.userId || String(socket.data.userId) !== String(userId)) {
+      console.warn(`typing refused for socket ${socket.id}: userId does not match the authenticated user`);
+      return;
+    }
     io.to(chatroomId).emit("friendTyping", { chatroomId, userId, username });
   });
 };

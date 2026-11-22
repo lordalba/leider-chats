@@ -5,13 +5,22 @@ import User from "../models/User";
 import ChatRoom from "../models/chatrooms/ChatRoom";
 import { notifyChatParticipants } from "./notifyChatParticipants";
 import { cascadeDeleteChatWorkspaces, evictUserFromChatWorkspaces } from "../services/workspaces/WorkspaceService";
-import { isChatAdmin, toObjectId } from "../services/workspaces/WorkspaceAccess";
+import { toObjectId } from "../services/workspaces/WorkspaceAccess";
+import { isAuthenticatedChatAdmin, isAuthenticatedChatParticipant } from "./chatAuth";
 import { deleteChatRoom, exitChatRoom, patchAdminPermissions, removeUserFromChat, updateUserAdminInChat } from "../services/ChatRoomService";
 
 const usersInChatRooms: { [chatroomId: string]: Set<string> } = {};
 
 const chatRoomHandler = (io: Server, socket: Socket) => {
   socket.on("joinRoom", async (prevChatroomId, chatroomId, userId) => {
+    if (
+      !socket.data.userId ||
+      String(socket.data.userId) !== String(userId) ||
+      !(await isAuthenticatedChatParticipant(socket, chatroomId))
+    ) {
+      console.warn(`joinRoom refused for socket ${socket.id}: not a participant or userId mismatch`);
+      return;
+    }
     const userIdAsObjectId = new mongoose.Types.ObjectId(userId);
     
     if (!usersInChatRooms[chatroomId]) {
@@ -52,6 +61,10 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("updateAdminPermissions", async (chatroomId, newAdminPermissions) => {
+    if (typeof newAdminPermissions !== "boolean" || !(await isAuthenticatedChatAdmin(socket, chatroomId))) {
+      console.warn(`updateAdminPermissions refused for socket ${socket.id}: not a chat admin or invalid value`);
+      return;
+    }
     const emitData = {
       chatRoomId: chatroomId,
       newAdminPermissions: newAdminPermissions,
@@ -61,6 +74,13 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("updateUserAdminStatus", async (chatroomId, userId, updateToAdmin) => {
+    if (
+      !(await isAuthenticatedChatAdmin(socket, chatroomId)) ||
+      !(await isParticipantOf(chatroomId, userId))
+    ) {
+      console.warn(`updateUserAdminStatus refused for socket ${socket.id}: not a chat admin or target not a participant`);
+      return;
+    }
     const emitData = {
       chatRoomId: chatroomId,
       userId,
@@ -127,18 +147,11 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 };
 
-// Destructive legacy chat events (no ack) are allowed only for an
-// authenticated socket whose user is a participant and admin of the chat.
-const isAuthenticatedChatAdmin = async (socket: Socket, chatRoomId: unknown): Promise<boolean> => {
-  const userId = socket.data.userId;
-  if (!userId) return false;
+const isParticipantOf = async (chatRoomId: unknown, userId: unknown): Promise<boolean> => {
   try {
     const chat = await ChatRoom.findById(toObjectId(chatRoomId));
-    if (!chat) return false;
-    const isParticipant = chat.participants.some((p) => String(p) === String(userId));
-    return isParticipant && isChatAdmin(chat, userId);
+    return !!chat && chat.participants.some((p) => String(p) === String(userId));
   } catch (error) {
-    // toObjectId throws for malformed ids; treat any failure as "not allowed".
     return false;
   }
 };
