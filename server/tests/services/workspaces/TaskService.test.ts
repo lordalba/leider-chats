@@ -101,4 +101,19 @@ describe("TaskService", () => {
     expect(String(task._id)).toBe(String(t._id));
     expect(await Task.findById(t._id)).toBeNull();
   });
+  test("update/move of a task deleted between load and save -> not_found", async () => {
+    const { a, wsId } = await setup();
+    for (const op of ["update", "move"] as const) {
+      const t = await createTask(a, wsId, { title: "t" });
+      const loaded = await Task.findById(t._id);
+      await Task.deleteOne({ _id: t._id });
+      const spy = jest.spyOn(Task, "findById").mockResolvedValueOnce(loaded as any);
+      const p =
+        op === "update"
+          ? updateTask(a, String(t._id), { title: "x" })
+          : moveTask(a, String(t._id), "done" as any, 1);
+      await code(p, "not_found");
+      spy.mockRestore();
+    }
+  });
 });

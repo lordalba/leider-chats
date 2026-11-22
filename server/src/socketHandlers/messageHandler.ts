@@ -4,14 +4,21 @@ import { saveChatMessage } from "../services/ChatRoomService";
 import { usersInChatRooms } from "./chatRoomHandler";
 import { OnlineUserService } from "../services/OnlineUserService";
 import ChatRoom from "../models/chatrooms/ChatRoom";
-import { canSendMessage } from "./chatAuth";
+import { canSendMessage, refuseUnauthenticated } from "./chatAuth";
+
+const CLIENT_MESSAGE_TYPES: unknown[] = ["text", "voice", "image", "location", "file"];
 
 const messageHandler = (io: Server, socket: Socket) => {
   socket.on("sendMessage", async (message) => {
-    const { chatRoomId, senderId, content, type, fileName, mediaUrl } = message;
+    const { chatRoomId, senderId, content, type, fileName, mediaUrl } = message || {};
 
+    if (refuseUnauthenticated(socket, "sendMessage")) return;
+    // "system" lines are server-generated only; clients may not forge them.
+    if (!CLIENT_MESSAGE_TYPES.includes(type)) {
+      console.warn(`sendMessage refused for socket ${socket.id}: invalid message type ${JSON.stringify(type)}`);
+      return;
+    }
     if (
-      !socket.data.userId ||
       String(socket.data.userId) !== String(senderId) ||
       !(await canSendMessage(socket, chatRoomId))
     ) {
@@ -46,8 +53,9 @@ const messageHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("typing", (data) => {
-    const { chatroomId, userId, username } = data;
-    if (!socket.data.userId || String(socket.data.userId) !== String(userId)) {
+    const { chatroomId, userId, username } = data || {};
+    if (refuseUnauthenticated(socket, "typing")) return;
+    if (String(socket.data.userId) !== String(userId)) {
       console.warn(`typing refused for socket ${socket.id}: userId does not match the authenticated user`);
       return;
     }

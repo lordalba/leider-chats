@@ -6,6 +6,28 @@ import { isChatAdmin, toObjectId } from "../services/workspaces/WorkspaceAccess"
 // Legacy chat socket events carry no ack, so authorization is a boolean gate on
 // the JWT-derived socket.data.userId (never on ids sent in the payload).
 
+/**
+ * Tell the client its socket has no valid token (e.g. it reconnected after
+ * the JWT expired), at most once per socket.
+ */
+export const notifyAuthExpired = (socket: Socket): void => {
+  if (socket.data.authExpiredNotified) return;
+  socket.data.authExpiredNotified = true;
+  socket.emit("auth:expired");
+};
+
+/**
+ * Gate for legacy chat events: true (and the event must be dropped) when the
+ * socket is unauthenticated. Emits auth:expired so the client can re-login
+ * instead of silently losing the event.
+ */
+export const refuseUnauthenticated = (socket: Socket, event: string): boolean => {
+  if (socket.data.userId) return false;
+  console.warn(`${event} refused for socket ${socket.id}: unauthenticated`);
+  notifyAuthExpired(socket);
+  return true;
+};
+
 const loadChatIfParticipant = async (
   socket: Socket,
   chatRoomId: unknown

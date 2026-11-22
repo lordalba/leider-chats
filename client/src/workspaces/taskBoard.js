@@ -54,8 +54,9 @@ export function dropOrder(column, draggedId, index) {
 
 /**
  * Apply a `workspace:item` event `{action, item}` to a list, returning a new
- * array. created/updated upsert by `_id` (an item older than the stored one,
- * by `updatedAt`, is ignored); deleted removes it.
+ * array. created/updated replace the stored item by `_id` (an item older than
+ * the stored one, by `updatedAt`, is ignored); only created may insert, so an
+ * update for an unknown (e.g. already deleted) id is a no-op; deleted removes it.
  */
 export function applyItemEvent(items, event) {
   const list = items || [];
@@ -66,7 +67,9 @@ export function applyItemEvent(items, event) {
   if (event.action === "deleted") {
     return list.filter((existing) => String(existing._id) !== id);
   }
-  if (index === -1) return [...list, event.item];
+  if (index === -1) {
+    return event.action === "created" ? [...list, event.item] : list.slice();
+  }
 
   const stored = list[index];
   if (
@@ -81,11 +84,14 @@ export function applyItemEvent(items, event) {
   return next;
 }
 
+export const SESSION_EXPIRED_MESSAGE = "Your session expired — please log in again";
+
 const ERROR_MESSAGES = {
   invalid: "Please check the task details",
   forbidden: "You no longer have access to this workspace",
   not_found: "This task was deleted",
   timeout: "Connection problem — try again",
+  unauthenticated: SESSION_EXPIRED_MESSAGE,
 };
 
 /** Toast copy for a task socket error code. */

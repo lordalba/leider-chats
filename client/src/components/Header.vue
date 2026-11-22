@@ -59,7 +59,7 @@
 <script>
 import { mapActions } from "vuex";
 import Swal from "sweetalert2";
-import store from "@/store/store";
+import { clearSession } from "@/auth/session";
 
 export default {
   name: "HeaderComponent",
@@ -69,12 +69,7 @@ export default {
   methods: {
     ...mapActions(["setConnectedUser"]),
     disconnect() {
-      localStorage.removeItem("token");
-      store.dispatch("setConnectedUser", undefined);
-      if (this.socket) this.socket.disconnect();
-      // Drop the dead socket so the next login creates a fresh one with the
-      // new user's token (initializeSocket only creates one when none is set).
-      store.commit("socket/SET_SOCKET", null);
+      clearSession();
 
       this.$router.push("/");
       Swal.fire({
@@ -83,11 +78,6 @@ export default {
         text: "Signed Off successfuly!",
         footer: '<a href="shorturl.at/gwRUY">why is your mother in a pita?</a>',
       });
-    },
-  },
-  computed: {
-    socket() {
-      return this.$store.getters["socket/socket"];
     },
   },
 };

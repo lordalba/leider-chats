@@ -113,6 +113,9 @@ export default {
       busy: false,
       deleting: false,
       confirmingDelete: false,
+      // Field values as opened (edit mode), so a save sends only what this
+      // user changed and never reverts someone else's concurrent edit.
+      initialFields: null,
     };
   },
   computed: {
@@ -152,6 +155,20 @@ export default {
       this.busy = false;
       this.deleting = false;
       this.confirmingDelete = false;
+      this.initialFields = task ? this.fields() : null;
+    },
+    changedFields() {
+      const current = this.fields();
+      const initial = this.initialFields || {};
+      const same = (key) =>
+        key === "assignedTo"
+          ? [...(current[key] || [])].sort().join() === [...(initial[key] || [])].sort().join()
+          : current[key] === initial[key];
+      const patch = {};
+      Object.keys(current).forEach((key) => {
+        if (!same(key)) patch[key] = current[key];
+      });
+      return patch;
     },
     fields() {
       return {
@@ -173,7 +190,12 @@ export default {
         let item;
         if (this.editing) {
           if (!this.task) return;
-          item = await emitWithAck(this.socket, "task:update", this.task._id, this.fields());
+          const patch = this.changedFields();
+          if (Object.keys(patch).length === 0) {
+            this.close();
+            return;
+          }
+          item = await emitWithAck(this.socket, "task:update", this.task._id, patch);
           this.$emit("item-event", { action: "updated", item });
         } else {
           const input = { ...this.fields(), status: this.status };

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 import Workspace from "../../models/workspaces/Workspace";
 import ChatRoom from "../../models/chatrooms/ChatRoom";
 import Message from "../../models/chatrooms/Message";
@@ -276,6 +276,16 @@ export async function cascadeDeleteChatWorkspaces(
 }
 
 /**
+ * Every connected socket authenticated (socket.data.userId, set by
+ * socketAuth) as the given user — all of their tabs/devices.
+ */
+export function socketsOfUser(io: Server, userId: string): Socket[] {
+  return [...io.sockets.sockets.values()].filter(
+    (s) => s.data.userId !== undefined && String(s.data.userId) === String(userId)
+  );
+}
+
+/**
  * Remove one user (all of their sockets) from every workspace of a chat they
  * no longer belong to. Sockets are matched on socket.data.userId (set by
  * socketAuth), not on OnlineUserService.
@@ -289,11 +299,7 @@ export async function evictUserFromChatWorkspaces(
   if (workspaces.length === 0) return;
   const rooms = await collectWorkspaceRooms(workspaces.map((w) => String(w._id)));
 
-  const userSockets = [...io.sockets.sockets.values()].filter(
-    (s) => String(s.data.userId) === String(userId)
-  );
-
-  for (const socket of userSockets) {
+  for (const socket of socketsOfUser(io, userId)) {
     for (const [workspaceId, workspaceRooms] of rooms) {
       for (const room of workspaceRooms) socket.leave(room);
       WorkspacePresenceService.leave(workspaceId, socket.id);

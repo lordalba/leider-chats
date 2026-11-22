@@ -96,6 +96,30 @@ describe("applyItemEvent", () => {
     expect(added.map((x) => x._id)).toEqual(["a", "b"]);
   });
 
+  it("applies an update with an equal updatedAt (last write wins)", () => {
+    const items = [t("a", "todo", 1, { title: "old" })];
+    const next = applyItemEvent(items, {
+      action: "updated",
+      item: t("a", "done", 2, { title: "new" }),
+    });
+    expect(next[0].title).toBe("new");
+    expect(next[0].status).toBe("done");
+  });
+
+  it("updated for an unknown _id is a no-op (no ghost after a delete)", () => {
+    const items = [t("b", "todo", 2)];
+    const next = applyItemEvent(items, { action: "updated", item: t("a", "todo", 1) });
+    expect(next).toEqual(items);
+    expect(next).not.toBe(items);
+  });
+
+  it("a failed-move revert after a delete broadcast does not resurrect the card", () => {
+    const card = t("a", "todo", 1);
+    const afterDelete = applyItemEvent([card], { action: "deleted", item: { _id: "a" } });
+    const reverted = applyItemEvent(afterDelete, { action: "updated", item: card });
+    expect(reverted).toEqual([]);
+  });
+
   it("deleted removes the item", () => {
     const items = [t("a", "todo", 1), t("b", "todo", 2)];
     const next = applyItemEvent(items, { action: "deleted", item: { _id: "a" } });
@@ -123,6 +147,7 @@ describe("taskErrorMessage", () => {
     expect(taskErrorMessage("forbidden")).toBe("You no longer have access to this workspace");
     expect(taskErrorMessage("not_found")).toBe("This task was deleted");
     expect(taskErrorMessage("timeout")).toBe("Connection problem — try again");
+    expect(taskErrorMessage("unauthenticated")).toBe("Your session expired — please log in again");
     expect(taskErrorMessage("board_full")).toBe("Something went wrong");
     expect(taskErrorMessage(undefined)).toBe("Something went wrong");
   });

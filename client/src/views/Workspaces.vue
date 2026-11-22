@@ -21,6 +21,7 @@ import WorkspacesSidebar from "@/components/workspaces/WorkspacesSidebar.vue";
 import { fetchWorkspace, fetchWorkspaces } from "@/api/WorkspaceService";
 import { emitWithAck, ensureSocket } from "@/workspaces/socketCall";
 import { applyItemEvent } from "@/workspaces/taskBoard";
+import { handleSessionExpired } from "@/auth/session";
 
 const REVOKED_MESSAGE = "You no longer have access to this workspace";
 
@@ -41,6 +42,9 @@ export default {
       socket: null,
       // Bumped on every open so stale async results are dropped.
       openSeq: 0,
+      // Non-null while a snapshot is loading: item events received after the
+      // join, replayed once the snapshot arrives.
+      pendingEvents: null,
     };
   },
   computed: {
@@ -104,16 +108,28 @@ export default {
       if (this.joinedId && this.joinedId !== id) this.leaveJoined();
       this.detail = null;
       this.members = [];
+      this.pendingEvents = null;
       if (!id) return;
+      await this.loadWorkspace(id, seq);
+    },
+    // Join the rooms first, then take the REST snapshot, then replay the
+    // workspace:item events that arrived during the fetch (last-write-wins by
+    // updatedAt makes the replay safe). Used on open and after a reconnect.
+    async loadWorkspace(id, seq) {
+      this.pendingEvents = [];
+      const joined = await this.join(id, seq);
+      if (joined === "stale" || joined === "denied") return;
 
+      let response;
       try {
-        const response = await fetchWorkspace(id);
-        if (seq !== this.openSeq) return;
-        this.detail = response.data;
+        response = await fetchWorkspace(id);
       } catch (error) {
         if (seq !== this.openSeq) return;
+        this.pendingEvents = null;
         const status = error.response && error.response.status;
-        if (status === 403 || status === 404) {
+        if (status === 401) {
+          handleSessionExpired();
+        } else if (status === 403 || status === 404) {
           this.denyAccess();
         } else {
           console.error("Failed to load workspace:", error);
@@ -121,10 +137,16 @@ export default {
         }
         return;
       }
-      await this.join(id, seq);
+      if (seq !== this.openSeq) return;
+      const buffered = this.pendingEvents || [];
+      this.pendingEvents = null;
+      this.detail = response.data;
+      buffered.forEach((event) => this.applyTaskEvent(event));
     },
+    // Resolves "ok" | "failed" (snapshot still worth loading) | "stale" |
+    // "denied" (access refused or session expired: stop).
     async join(id, seq) {
-      if (!this.socket) return;
+      if (!this.socket) return "failed";
       try {
         const { members } = await emitWithAck(this.socket, "workspace:join", id);
         if (seq !== this.openSeq) {
@@ -134,21 +156,29 @@ export default {
           if (this.workspaceId !== id && this.joinedId !== id) {
             emitWithAck(this.socket, "workspace:leave", id).catch(() => {});
           }
-          return;
+          return "stale";
         }
         this.joinedId = id;
         this.members = members;
+        return "ok";
       } catch (error) {
-        if (seq !== this.openSeq) return;
+        if (seq !== this.openSeq) return "stale";
+        if (error.message === "unauthenticated") {
+          this.pendingEvents = null;
+          handleSessionExpired();
+          return "denied";
+        }
         if (error.message === "forbidden" || error.message === "not_found") {
           this.denyAccess();
-        } else {
-          console.error("workspace:join failed:", error);
+          return "denied";
         }
+        console.error("workspace:join failed:", error);
+        return "failed";
       }
     },
     denyAccess() {
       this.joinedId = null;
+      this.pendingEvents = null;
       this.detail = null;
       this.members = [];
       this.$toast.error(REVOKED_MESSAGE);
@@ -169,10 +199,15 @@ export default {
       );
     },
     onConnect() {
-      // Presence is per socket connection; re-join after a reconnect.
-      if (this.workspaceId && this.detail) {
-        this.join(this.workspaceId, this.openSeq);
-      }
+      // Rooms and presence are per socket connection, and broadcasts sent
+      // while disconnected are lost: after a reconnect, re-join and resync
+      // (one join per reconnect). The stale snapshot stays visible meanwhile.
+      // With no detail yet the initial open is still in flight and its
+      // buffered join is sent on this connection.
+      if (!this.workspaceId || !this.detail) return;
+      const seq = ++this.openSeq;
+      this.joinedId = null;
+      this.loadWorkspace(this.workspaceId, seq);
     },
     onPresence(payload) {
       if (!payload || String(payload.workspaceId) !== this.workspaceId) return;
@@ -195,7 +230,13 @@ export default {
     applyTaskEvent(event) {
       // Used for broadcasts, acks and optimistic updates alike: upsert by _id
       // (older updatedAt ignored), so the sender's copies never duplicate.
-      if (!this.detail || !event || !event.item) return;
+      if (!event || !event.item) return;
+      if (this.pendingEvents) {
+        // A snapshot is being fetched; replayed on top of it once it lands.
+        this.pendingEvents.push(event);
+        return;
+      }
+      if (!this.detail) return;
       const owner = event.item.workspace;
       if (owner && String(owner) !== String(this.detail.workspace._id)) return;
       this.detail = {

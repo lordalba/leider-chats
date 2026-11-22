@@ -4,17 +4,17 @@ import Message from "../models/chatrooms/Message";
 import User from "../models/User";
 import ChatRoom from "../models/chatrooms/ChatRoom";
 import { notifyChatParticipants } from "./notifyChatParticipants";
-import { cascadeDeleteChatWorkspaces, evictUserFromChatWorkspaces } from "../services/workspaces/WorkspaceService";
+import { cascadeDeleteChatWorkspaces, evictUserFromChatWorkspaces, socketsOfUser } from "../services/workspaces/WorkspaceService";
 import { toObjectId } from "../services/workspaces/WorkspaceAccess";
-import { isAuthenticatedChatAdmin, isAuthenticatedChatParticipant } from "./chatAuth";
+import { isAuthenticatedChatAdmin, isAuthenticatedChatParticipant, refuseUnauthenticated } from "./chatAuth";
 import { deleteChatRoom, exitChatRoom, patchAdminPermissions, removeUserFromChat, updateUserAdminInChat } from "../services/ChatRoomService";
 
 const usersInChatRooms: { [chatroomId: string]: Set<string> } = {};
 
 const chatRoomHandler = (io: Server, socket: Socket) => {
   socket.on("joinRoom", async (prevChatroomId, chatroomId, userId) => {
+    if (refuseUnauthenticated(socket, "joinRoom")) return;
     if (
-      !socket.data.userId ||
       String(socket.data.userId) !== String(userId) ||
       !(await isAuthenticatedChatParticipant(socket, chatroomId))
     ) {
@@ -61,6 +61,7 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("updateAdminPermissions", async (chatroomId, newAdminPermissions) => {
+    if (refuseUnauthenticated(socket, "updateAdminPermissions")) return;
     if (typeof newAdminPermissions !== "boolean" || !(await isAuthenticatedChatAdmin(socket, chatroomId))) {
       console.warn(`updateAdminPermissions refused for socket ${socket.id}: not a chat admin or invalid value`);
       return;
@@ -74,11 +75,13 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("updateUserAdminStatus", async (chatroomId, userId, updateToAdmin) => {
+    if (refuseUnauthenticated(socket, "updateUserAdminStatus")) return;
     if (
+      typeof updateToAdmin !== "boolean" ||
       !(await isAuthenticatedChatAdmin(socket, chatroomId)) ||
       !(await isParticipantOf(chatroomId, userId))
     ) {
-      console.warn(`updateUserAdminStatus refused for socket ${socket.id}: not a chat admin or target not a participant`);
+      console.warn(`updateUserAdminStatus refused for socket ${socket.id}: not a chat admin, target not a participant or invalid value`);
       return;
     }
     const emitData = {
@@ -91,6 +94,7 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("removeParticipantFromChat", async (chatRoomId, userId, removedUserName, removerName) => {
+    if (refuseUnauthenticated(socket, "removeParticipantFromChat")) return;
     if (!(await isAuthenticatedChatAdmin(socket, chatRoomId))) {
       console.warn(`removeParticipantFromChat refused for socket ${socket.id}: not a chat admin`);
       return;
@@ -101,6 +105,9 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
     };
     const systemExitMessage = await removeUserFromChat(new mongoose.Types.ObjectId(chatRoomId), new mongoose.Types.ObjectId(userId), removedUserName, removerName);
     io.to(chatRoomId).emit("newMessage", systemExitMessage);
+    // The removed user must stop receiving this chat's room broadcasts on
+    // every tab (their removal line above is the last one they get).
+    leaveChatRoomEverywhere(io, String(chatRoomId), String(userId));
     await notifyChatParticipants(io, chatRoomId, "remove-user-from-chat", emitData);
     await runWorkspaceCleanup(() => evictUserFromChatWorkspaces(io, chatRoomId, String(userId)));
   });
@@ -110,6 +117,7 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("deleteRoom", async (chatRoomId, userId) => {
+    if (refuseUnauthenticated(socket, "deleteRoom")) return;
     if (!(await isAuthenticatedChatAdmin(socket, chatRoomId))) {
       console.warn(`deleteRoom refused for socket ${socket.id}: not a chat admin`);
       return;
@@ -122,13 +130,16 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
   });
 
   socket.on("exitRoom", async (chatRoomId, userId, participantName) => {
+    if (refuseUnauthenticated(socket, "exitRoom")) return;
     const authUserId = socket.data.userId;
-    if (!authUserId || String(authUserId) !== String(userId)) {
+    if (String(authUserId) !== String(userId)) {
       console.warn(`exitRoom refused for socket ${socket.id}: userId does not match the authenticated user`);
       return;
     }
     const systemExitMessage = await exitChatRoom(new mongoose.Types.ObjectId(chatRoomId), userId, participantName);
     io.to(chatRoomId).emit("newMessage", systemExitMessage);
+    // The leaver's other tabs must stop receiving this chat's broadcasts too.
+    leaveChatRoomEverywhere(io, String(chatRoomId), String(userId));
 
     const emitData = {chatRoomId, userId}
     await notifyChatParticipants(io, chatRoomId, "userExitedChatroom", emitData);
@@ -142,9 +153,17 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
     });
   });
 
-  socket.on("createdChatroom", async (chatroomId) => {
-    await notifyChatParticipants(io, chatroomId, "chatroom-created", null);
-  });
+};
+
+// Make every socket of a user leave a chat's Socket.IO room and drop them
+// from the chat's in-room set (used when they are no longer a participant).
+const leaveChatRoomEverywhere = (io: Server, chatRoomId: string, userId: string) => {
+  for (const s of socketsOfUser(io, userId)) s.leave(chatRoomId);
+  const inRoom = usersInChatRooms[chatRoomId];
+  if (inRoom) {
+    inRoom.delete(userId);
+    if (inRoom.size === 0) delete usersInChatRooms[chatRoomId];
+  }
 };
 
 const isParticipantOf = async (chatRoomId: unknown, userId: unknown): Promise<boolean> => {

@@ -86,7 +86,7 @@ export const updateUserAdminInChat = async (
   updateToAdmin
     ? await ChatRoom.findByIdAndUpdate(
         chatRoomId,
-        { $push: { admins: participantId } },
+        { $addToSet: { admins: participantId } },
         { new: true }
       )
     : await ChatRoom.findByIdAndUpdate(

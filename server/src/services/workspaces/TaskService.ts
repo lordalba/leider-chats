@@ -84,6 +84,19 @@ function validateAssignees(
   return result;
 }
 
+// A concurrent delete between load and save makes Mongoose throw
+// DocumentNotFoundError; report it as the task being gone, not a server fault.
+async function saveTask(task: mongoose.HydratedDocument<ITask>): Promise<void> {
+  try {
+    await task.save();
+  } catch (error) {
+    if (error instanceof mongoose.Error.DocumentNotFoundError) {
+      throw new WorkspaceError("not_found");
+    }
+    throw error;
+  }
+}
+
 async function loadTaskForMember(userId: string, taskId: string) {
   const task = await Task.findById(toObjectId(taskId));
   if (!task) throw new WorkspaceError("not_found");
@@ -155,7 +168,7 @@ export async function updateTask(
     if (d === null) task.set("dueDate", undefined);
     else task.dueDate = d;
   }
-  await task.save();
+  await saveTask(task);
   return task;
 }
 
@@ -168,7 +181,7 @@ export async function moveTask(
   const { task } = await loadTaskForMember(userId, taskId);
   task.status = validateStatus(status);
   task.order = validateOrder(order);
-  await task.save();
+  await saveTask(task);
   return task;
 }
 

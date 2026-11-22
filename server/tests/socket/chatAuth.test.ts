@@ -232,3 +232,110 @@ describe("legacy chat socket event authorization", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 });
+
+describe("phase 2 review fixes", () => {
+  it("emits auth:expired (once) when an unauthenticated socket sends a chat event", async () => {
+    const s = await setup();
+    const anon = await connect(null);
+    let count = 0;
+    anon.on("auth:expired", () => count++);
+    const got = waitFor(anon, "auth:expired");
+    anon.emit("sendMessage", { chatRoomId: s.id, senderId: s.aId, content: "hi", type: "text" });
+    await got;
+    anon.emit("joinRoom", null, s.id, s.aId);
+    anon.emit("typing", { chatroomId: s.id, userId: s.aId, username: "x" });
+    await settle();
+    expect(count).toBe(1);
+    expect(await Message.countDocuments()).toBe(0);
+  });
+
+  it("does not emit auth:expired for refusals of an authenticated socket", async () => {
+    const s = await setup();
+    const sc = await connect(s.cId);
+    const none = expectNoEvent(sc, "auth:expired");
+    sc.emit("sendMessage", { chatRoomId: s.id, senderId: s.cId, content: "hi", type: "text" });
+    await none;
+  });
+
+  it("userOnline ignores a payload userId that is not the authenticated user", async () => {
+    const s = await setup();
+    const sa = await connect(s.aId);
+    const sb = await connect(s.bId);
+    const sc = await connect(s.cId);
+    sa.emit("userOnline", s.aId);
+    sc.emit("userOnline", s.aId);
+    await settle();
+    sb.emit("joinRoom", null, s.id, s.bId);
+    await settle();
+    const none = expectNoEvent(sc, "newChatMessage", 500);
+    const got = waitFor(sa, "newChatMessage");
+    sb.emit("sendMessage", { chatRoomId: s.id, senderId: s.bId, content: "hi", type: "text" });
+    expect(await got).toMatchObject({ chatRoomId: s.id });
+    await none;
+  });
+
+  it("removed participant's sockets stop receiving the chat's room broadcasts", async () => {
+    const s = await setup();
+    const sa = await connect(s.aId);
+    const sb1 = await connect(s.bId);
+    const sb2 = await connect(s.bId);
+    for (const [sock, id] of [[sa, s.aId], [sb1, s.bId], [sb2, s.bId]] as const) {
+      sock.emit("joinRoom", null, s.id, id);
+    }
+    await settle();
+    sa.emit("removeParticipantFromChat", s.id, s.bId, "memberB", "adminA");
+    await settle(400);
+    expect((await ChatRoom.findById(s.id))!.participants.map(String)).toEqual([s.aId]);
+    const none1 = expectNoEvent(sb1, "newMessage");
+    const none2 = expectNoEvent(sb2, "newMessage");
+    const got = waitFor(sa, "newMessage");
+    sa.emit("sendMessage", { chatRoomId: s.id, senderId: s.aId, content: "after", type: "text" });
+    expect((await got).content).toBe("after");
+    await Promise.all([none1, none2]);
+  });
+
+  it("exitRoom makes the leaver's other tabs leave the chat room", async () => {
+    const s = await setup();
+    const sa = await connect(s.aId);
+    const sb1 = await connect(s.bId);
+    const sb2 = await connect(s.bId);
+    for (const [sock, id] of [[sa, s.aId], [sb1, s.bId], [sb2, s.bId]] as const) {
+      sock.emit("joinRoom", null, s.id, id);
+    }
+    await settle();
+    sb1.emit("exitRoom", s.id, s.bId, "memberB");
+    await settle(400);
+    const none = expectNoEvent(sb2, "newMessage");
+    const got = waitFor(sa, "newMessage");
+    sa.emit("sendMessage", { chatRoomId: s.id, senderId: s.aId, content: "after", type: "text" });
+    expect((await got).content).toBe("after");
+    await none;
+  });
+
+  it("refuses client-sent system messages", async () => {
+    const s = await setup();
+    const sa = await connect(s.aId);
+    sa.emit("sendMessage", { chatRoomId: s.id, senderId: s.aId, content: "forged", type: "system" });
+    sa.emit("sendMessage", { chatRoomId: s.id, senderId: s.aId, content: "x", type: "bogus" });
+    await settle();
+    expect(await Message.countDocuments()).toBe(0);
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it("refuses a non-boolean updateToAdmin", async () => {
+    const s = await setup();
+    const sa = await connect(s.aId);
+    sa.emit("updateUserAdminStatus", s.id, s.bId, "true");
+    await settle();
+    expect((await ChatRoom.findById(s.id))!.admins.map(String)).toEqual([s.aId]);
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it("promoting an existing admin does not duplicate it", async () => {
+    const s = await setup();
+    const sa = await connect(s.aId);
+    sa.emit("updateUserAdminStatus", s.id, s.aId, true);
+    await settle();
+    expect((await ChatRoom.findById(s.id))!.admins.map(String)).toEqual([s.aId]);
+  });
+});
