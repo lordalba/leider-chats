@@ -14,11 +14,17 @@
         <PresenceBar :members="members" />
       </div>
       <Tabs :tabs="tabs" @change-tab="setActiveTab" />
-      <!-- Placeholders: Tasks 7, 11 and 13 replace these, receiving `members`
+      <!-- Placeholders: Tasks 11 and 13 replace these, receiving `members`
            as a prop and emitting `focus` upward. -->
-      <div v-if="activeTab === 'Tasks'" class="tab-placeholder">
-        Tasks are coming soon.
-      </div>
+      <TaskBoard
+        v-if="activeTab === 'Tasks'"
+        :tasks="detail.tasks || []"
+        :participants="(detail.chat && detail.chat.participants) || []"
+        :members="members"
+        :workspaceId="String(detail.workspace._id)"
+        @focus="(focus) => $emit('focus', focus)"
+        @item-event="(event) => $emit('item-event', event)"
+      />
       <div v-else-if="activeTab === 'Documents'" class="tab-placeholder">
         Documents are coming soon.
       </div>
@@ -34,6 +40,7 @@
 import EmptyState from "@/components/workspaces/EmptyState.vue";
 import Tabs from "@/components/workspaces/Tabs.vue";
 import PresenceBar from "@/components/workspaces/PresenceBar.vue";
+import TaskBoard from "@/components/workspaces/tasks/TaskBoard.vue";
 
 const TABS = ["Tasks", "Documents", "Whiteboard"];
 
@@ -53,6 +60,7 @@ export default {
     Tabs,
     EmptyState,
     PresenceBar,
+    TaskBoard,
   },
   data() {
     return {

@@ -6,7 +6,12 @@
       :loading="loadingList"
       @select-workspace="selectWorkspace"
     />
-    <MainContent :detail="detail" :members="members" @focus="setFocus" />
+    <MainContent
+      :detail="detail"
+      :members="members"
+      @focus="setFocus"
+      @item-event="applyTaskEvent"
+    />
   </div>
 </template>
 
@@ -15,6 +20,7 @@ import WorkspaceMainContent from "@/components/workspaces/WorkspaceMainContent.v
 import WorkspacesSidebar from "@/components/workspaces/WorkspacesSidebar.vue";
 import { fetchWorkspace, fetchWorkspaces } from "@/api/WorkspaceService";
 import { emitWithAck, ensureSocket } from "@/workspaces/socketCall";
+import { applyItemEvent } from "@/workspaces/taskBoard";
 
 const REVOKED_MESSAGE = "You no longer have access to this workspace";
 
@@ -54,6 +60,7 @@ export default {
       this.socket.on("workspace:presence", this.onPresence);
       this.socket.on("workspace:updated", this.onUpdated);
       this.socket.on("workspace:revoked", this.onRevoked);
+      this.socket.on("workspace:item", this.onItem);
       this.socket.on("chat:workspaces-changed", this.loadList);
     }
     this.loadList();
@@ -65,6 +72,7 @@ export default {
       this.socket.off("workspace:presence", this.onPresence);
       this.socket.off("workspace:updated", this.onUpdated);
       this.socket.off("workspace:revoked", this.onRevoked);
+      this.socket.off("workspace:item", this.onItem);
       this.socket.off("chat:workspaces-changed", this.loadList);
     }
     this.leaveJoined();
@@ -178,6 +186,22 @@ export default {
       this.workspaces = this.workspaces.map((w) =>
         w._id === workspace._id ? { ...w, ...workspace } : w
       );
+    },
+    onItem(payload) {
+      if (!payload || String(payload.workspaceId) !== this.workspaceId) return;
+      // Documents and whiteboards are handled in later phases.
+      if (payload.kind === "task") this.applyTaskEvent(payload);
+    },
+    applyTaskEvent(event) {
+      // Used for broadcasts, acks and optimistic updates alike: upsert by _id
+      // (older updatedAt ignored), so the sender's copies never duplicate.
+      if (!this.detail || !event || !event.item) return;
+      const owner = event.item.workspace;
+      if (owner && String(owner) !== String(this.detail.workspace._id)) return;
+      this.detail = {
+        ...this.detail,
+        tasks: applyItemEvent(this.detail.tasks || [], event),
+      };
     },
     onRevoked(payload) {
       if (!payload || String(payload.workspaceId) !== this.workspaceId) return;
