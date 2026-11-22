@@ -69,10 +69,13 @@ export default {
   methods: {
     ...mapActions(["setConnectedUser"]),
     disconnect() {
-      localStorage.setItem("token", null);
+      localStorage.removeItem("token");
       store.dispatch("setConnectedUser", undefined);
-      this.socket.disconnect();
-      
+      if (this.socket) this.socket.disconnect();
+      // Drop the dead socket so the next login creates a fresh one with the
+      // new user's token (initializeSocket only creates one when none is set).
+      store.commit("socket/SET_SOCKET", null);
+
       this.$router.push("/");
       Swal.fire({
         icon: "success",

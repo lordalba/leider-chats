@@ -120,8 +120,10 @@ export default {
       try {
         const { members } = await emitWithAck(this.socket, "workspace:join", id);
         if (seq !== this.openSeq) {
-          // Switched away while joining: undo the join we just made.
-          if (this.joinedId !== id) {
+          // Switched away while joining: undo the join we just made, unless
+          // the user is viewing this workspace again (A->B->A): a newer open
+          // joins it too, and a late leave would drop that membership.
+          if (this.workspaceId !== id && this.joinedId !== id) {
             emitWithAck(this.socket, "workspace:leave", id).catch(() => {});
           }
           return;

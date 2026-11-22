@@ -1,5 +1,5 @@
 <template>
-  <div class="sidebar">
+  <div class="workspaces-sidebar">
     <h3>Workspaces</h3>
     <p v-if="loading" class="sidebar-hint">Loading…</p>
     <p v-else-if="groups.length === 0" class="sidebar-hint">
@@ -57,7 +57,7 @@ export default {
 </script>
 
 <style scoped>
-.sidebar {
+.workspaces-sidebar {
   width: 350px;
   min-width: 260px;
   background: #f5f5f5;

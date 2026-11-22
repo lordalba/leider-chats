@@ -44,3 +44,29 @@ export default {
   color: #555;
 }
 </style>
+
+<style>
+/*
+ * These global rules used to leak from an unscoped <style> block in
+ * views/Workspaces.vue (the router imports it eagerly, so they applied to
+ * every page, after the rules above). Other pages depend on them (e.g. the
+ * chats page's `.sidebar`), so they are kept here, globally, with their
+ * original values. Workspace components use their own class names.
+ */
+#app {
+  display: flex; /* Flexbox layout for sidebar and content */
+  height: 100vh; /* Full viewport height */
+  overflow: hidden; /* Prevent scrolling */
+}
+
+.sidebar {
+  height: 100vh; /* Full height */
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+</style>

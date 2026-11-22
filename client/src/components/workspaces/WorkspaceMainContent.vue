@@ -1,5 +1,5 @@
 <template>
-  <div class="main-content">
+  <div class="workspace-main">
     <div v-if="detail">
       <div class="workspace-header">
         <div>
@@ -72,7 +72,7 @@ export default {
 </script>
 
 <style scoped>
-.main-content {
+.workspace-main {
   flex: 1;
   padding: 20px;
   height: 100vh;

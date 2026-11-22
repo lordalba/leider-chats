@@ -29,12 +29,20 @@ export function emitWithAck(socket, event, ...args) {
 }
 
 /**
+ * A stored token is usable only when present and not the literal "null"
+ * (older logouts stored `localStorage.setItem("token", null)`).
+ */
+export function hasUsableToken(token) {
+  return typeof token === "string" && token !== "" && token !== "null";
+}
+
+/**
  * Return the app socket, creating it first when it is missing (e.g. after a
  * page reload, since the socket is otherwise only created at login).
  */
 export function ensureSocket(store) {
   let socket = store.getters["socket/socket"];
-  if (!socket && localStorage.getItem("token")) {
+  if (!socket && hasUsableToken(localStorage.getItem("token"))) {
     try {
       store.dispatch("socket/initializeSocket");
     } catch (error) {

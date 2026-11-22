@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { emitWithAck } from "../src/workspaces/socketCall.js";
+import { emitWithAck, ensureSocket } from "../src/workspaces/socketCall.js";
 
 function fakeSocket(response) {
   return {
@@ -46,5 +46,53 @@ describe("emitWithAck", () => {
     expect(settled).toBe(false);
     vi.advanceTimersByTime(1);
     await expect(promise).rejects.toThrow("timeout");
+  });
+});
+
+describe("ensureSocket token handling", () => {
+  function fakeStore() {
+    const store = {
+      socket: null,
+      dispatched: [],
+      getters: {},
+      dispatch(action) {
+        this.dispatched.push(action);
+        this.socket = { id: "new" };
+      },
+    };
+    Object.defineProperty(store.getters, "socket/socket", {
+      get: () => store.socket,
+    });
+    return store;
+  }
+
+  function withToken(token) {
+    vi.stubGlobal("localStorage", { getItem: () => token });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([null, "", "null"])("does not create a socket for token %j", (token) => {
+    withToken(token);
+    const store = fakeStore();
+    expect(ensureSocket(store)).toBeNull();
+    expect(store.dispatched).toEqual([]);
+  });
+
+  it("creates the socket when a real token is stored", () => {
+    withToken("abc.def.ghi");
+    const store = fakeStore();
+    expect(ensureSocket(store)).toEqual({ id: "new" });
+    expect(store.dispatched).toEqual(["socket/initializeSocket"]);
+  });
+
+  it("returns the existing socket without dispatching", () => {
+    withToken("abc.def.ghi");
+    const store = fakeStore();
+    store.socket = { id: "existing" };
+    expect(ensureSocket(store)).toEqual({ id: "existing" });
+    expect(store.dispatched).toEqual([]);
   });
 });
