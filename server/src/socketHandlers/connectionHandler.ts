@@ -3,6 +3,8 @@ import moment from "moment-timezone";
 import { OnlineUserService } from "../services/OnlineUserService";
 import { notifyFriendsOnlineStatus, disconnectFromChat } from "../services/UserService";
 import User from "../models/User";
+import { WorkspacePresenceService } from "../services/workspaces/WorkspacePresenceService";
+import { broadcastPresence } from "../services/workspaces/WorkspaceService";
 
 const connectionHandler = (io: Server, socket: Socket) => {
   console.log("A user connected", socket.id);
@@ -15,6 +17,9 @@ const connectionHandler = (io: Server, socket: Socket) => {
 
   socket.on("disconnect", async () => {
     console.log("A user disconnected", socket.id);
+    for (const workspaceId of WorkspacePresenceService.removeSocket(socket.id)) {
+      broadcastPresence(io, workspaceId);
+    }
     const userId = OnlineUserService.removeUserSocket(socket.id);
     const israelTime = moment().tz("Asia/Jerusalem").toDate();
 
