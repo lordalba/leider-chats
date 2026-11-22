@@ -1,74 +1,97 @@
 <template>
-    <div class="sidebar">
-      <h3>Workspaces</h3>
+  <div class="sidebar">
+    <h3>Workspaces</h3>
+    <p v-if="loading" class="sidebar-hint">Loading…</p>
+    <p v-else-if="groups.length === 0" class="sidebar-hint">
+      No workspaces yet. Create one from a chat's details panel.
+    </p>
+    <div v-for="group in groups" :key="group.chatRoomId" class="chat-group">
+      <h6 class="chat-group-name">{{ group.chatName || "Chat" }}</h6>
       <ul class="workspace-list">
         <li
-          v-for="workspace in workspaces"
+          v-for="workspace in group.workspaces"
           :key="workspace._id"
           :class="{ active: selectedWorkspaceId === workspace._id }"
           @click="selectWorkspace(workspace)"
         >
           {{ workspace.name }}
-          <span class="participant-count">{{ workspace.participants.length }} members</span>
         </li>
       </ul>
-      <button @click="createWorkspace" class="create-btn">+ New Workspace</button>
     </div>
-  </template>
-  
-  <script>
-  export default {
-    props: {
-      workspaces: Array,
-      selectedWorkspaceId: String,
+  </div>
+</template>
+
+<script>
+export default {
+  props: {
+    workspaces: {
+      type: Array,
+      default: () => [],
     },
-    methods: {
-      selectWorkspace(workspace) {
-        this.$emit("select-workspace", workspace);
-      },
-      createWorkspace() {
-        this.$emit("create-workspace");
-      },
+    selectedWorkspaceId: String,
+    loading: Boolean,
+  },
+  computed: {
+    groups() {
+      const byChat = new Map();
+      for (const workspace of this.workspaces) {
+        const key = String(workspace.chatRoomId);
+        if (!byChat.has(key)) {
+          byChat.set(key, {
+            chatRoomId: key,
+            chatName: workspace.chatName,
+            workspaces: [],
+          });
+        }
+        byChat.get(key).workspaces.push(workspace);
+      }
+      return [...byChat.values()];
     },
-  };
-  </script>
-  
-  <style scoped>
-  .sidebar {
-    width: 350px;
-    background: #f5f5f5;
-    padding: 20px;
-    height: 100vh;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-  }
-  .workspace-list {
-    list-style: none;
-    padding: 0;
-  }
-  .workspace-list li {
-    padding: 10px;
-    cursor: pointer;
-    border-bottom: 1px solid #ddd;
-  }
-  .workspace-list li.active {
-    background-color: #43792d;
-    color: white;
-    border-radius: 10px;
-    padding: 10px;
-  }
-  .participant-count {
-    font-size: 0.9em;
-    color: gray;
-    margin-left: 5px;
-  }
-  .create-btn {
-    margin-top: 20px;
-    padding: 10px 15px;
-    background-color: #45815c;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  </style>
-  
+  },
+  methods: {
+    selectWorkspace(workspace) {
+      this.$emit("select-workspace", workspace);
+    },
+  },
+};
+</script>
+
+<style scoped>
+.sidebar {
+  width: 350px;
+  min-width: 260px;
+  background: #f5f5f5;
+  padding: 20px;
+  height: 100vh;
+  overflow-y: auto;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+.sidebar-hint {
+  color: gray;
+}
+.chat-group {
+  margin-bottom: 16px;
+}
+.chat-group-name {
+  color: gray;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.workspace-list {
+  list-style: none;
+  padding: 0;
+}
+.workspace-list li {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #ddd;
+}
+.workspace-list li.active {
+  background-color: #43792d;
+  color: white;
+  border-radius: 10px;
+  padding: 10px;
+}
+</style>

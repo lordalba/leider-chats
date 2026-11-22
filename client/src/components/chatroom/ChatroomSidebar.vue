@@ -19,6 +19,7 @@
           {{ friend.age }} • {{ friend.profession }} • {{ friend.location }}
         </p>
       </div>
+      <ChatWorkspaces :chatroom-id="chatroom._id" />
       <h5 style="margin-bottom: 5%">
         {{ isGroupChat ? "Participants:" : "Related Groups" }}
       </h5>
@@ -169,11 +170,13 @@
 import { fetchRelatedChatrooms } from "@/api/ChatRoomService"; // Replace with your API service
 import ToggleSwitch from "../ToggleSwitch.vue";
 import ConfirmationModal from "../ConfirmationModal.vue";
+import ChatWorkspaces from "./ChatWorkspaces.vue";
 
 export default {
   components: {
     ToggleSwitch,
     ConfirmationModal,
+    ChatWorkspaces,
   },
   props: {
     chatroom: {
