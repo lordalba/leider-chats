@@ -10,6 +10,10 @@ import { emitWithAck } from "./socketCall";
 // An empty Yjs update (no structs, no deletes) encodes as [0, 0].
 const EMPTY_UPDATE_LENGTH = 2;
 
+// The server's Socket.IO maxHttpBufferSize is 5e6: a bigger frame makes it
+// drop the connection, and the reconnect diff would resend it forever.
+export const MAX_UPDATE_BYTES = 4.5e6;
+
 /** Socket.IO hands binary over as ArrayBuffer (browser) or Buffer (node). */
 function toUint8(data) {
   if (data instanceof Uint8Array) return new Uint8Array(data);
@@ -42,6 +46,10 @@ export class SocketYProvider {
 
     this.onDocUpdate = (update, origin) => {
       if (origin === this || !this.synced || !this.socket.connected) return;
+      if (update.byteLength > MAX_UPDATE_BYTES) {
+        this.emitLocal("error", new Error("too_large"));
+        return;
+      }
       emitWithAck(this.socket, "doc:update", this.docId, update).catch((error) => {
         if (this.destroyed) return;
         // A lost update would otherwise stay unsent until the next reconnect.
@@ -123,7 +131,9 @@ export class SocketYProvider {
     );
     // No await between the diff and synced=true: any later local edit is
     // emitted live, every earlier one is in the diff.
-    if (missing.length > EMPTY_UPDATE_LENGTH) {
+    if (missing.length > MAX_UPDATE_BYTES) {
+      this.emitLocal("error", new Error("too_large"));
+    } else if (missing.length > EMPTY_UPDATE_LENGTH) {
       emitWithAck(this.socket, "doc:update", this.docId, missing).catch((error) => {
         if (this.destroyed || seq !== this.connectSeq) return;
         console.warn("doc:update (resync diff) failed, retrying:", error.message);

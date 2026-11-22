@@ -10,7 +10,7 @@
       :detail="detail"
       :members="members"
       @focus="setFocus"
-      @item-event="applyTaskEvent"
+      @item-event="applyItemEvent"
     />
   </div>
 </template>
@@ -20,10 +20,12 @@ import WorkspaceMainContent from "@/components/workspaces/WorkspaceMainContent.v
 import WorkspacesSidebar from "@/components/workspaces/WorkspacesSidebar.vue";
 import { fetchWorkspace, fetchWorkspaces } from "@/api/WorkspaceService";
 import { emitWithAck, ensureSocket } from "@/workspaces/socketCall";
-import { applyItemEvent } from "@/workspaces/taskBoard";
+import { applyItemEvent as applyListEvent } from "@/workspaces/taskBoard";
 import { handleSessionExpired } from "@/auth/session";
 
 const REVOKED_MESSAGE = "You no longer have access to this workspace";
+// workspace:item kind -> list on the workspace detail.
+const ITEM_LISTS = { task: "tasks", document: "documents", whiteboard: "whiteboards" };
 
 export default {
   name: "WorkSpaces",
@@ -141,7 +143,7 @@ export default {
       const buffered = this.pendingEvents || [];
       this.pendingEvents = null;
       this.detail = response.data;
-      buffered.forEach((event) => this.applyTaskEvent(event));
+      buffered.forEach((event) => this.applyItemEvent(event));
     },
     // Resolves "ok" | "failed" (snapshot still worth loading) | "stale" |
     // "denied" (access refused or session expired: stop).
@@ -224,13 +226,15 @@ export default {
     },
     onItem(payload) {
       if (!payload || String(payload.workspaceId) !== this.workspaceId) return;
-      // Documents and whiteboards are handled in later phases.
-      if (payload.kind === "task") this.applyTaskEvent(payload);
+      this.applyItemEvent(payload);
     },
-    applyTaskEvent(event) {
+    applyItemEvent(event) {
       // Used for broadcasts, acks and optimistic updates alike: upsert by _id
       // (older updatedAt ignored), so the sender's copies never duplicate.
+      // Task board events carry no kind.
       if (!event || !event.item) return;
+      const list = ITEM_LISTS[event.kind || "task"];
+      if (!list) return;
       if (this.pendingEvents) {
         // A snapshot is being fetched; replayed on top of it once it lands.
         this.pendingEvents.push(event);
@@ -241,7 +245,7 @@ export default {
       if (owner && String(owner) !== String(this.detail.workspace._id)) return;
       this.detail = {
         ...this.detail,
-        tasks: applyItemEvent(this.detail.tasks || [], event),
+        [list]: applyListEvent(this.detail[list] || [], event),
       };
     },
     onRevoked(payload) {

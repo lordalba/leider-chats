@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as Y from "yjs";
-import { SocketYProvider } from "../src/workspaces/SocketYProvider.js";
+import { SocketYProvider, MAX_UPDATE_BYTES } from "../src/workspaces/SocketYProvider.js";
 
 const DOC = "d1";
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
@@ -200,5 +200,21 @@ describe("SocketYProvider", () => {
     expect(states).toContainEqual(expect.objectContaining({ user: { name: "alice", color: "#123456" } }));
     a.provider.destroy();
     b.provider.destroy();
+  });
+
+  it("an update over MAX_UPDATE_BYTES is not sent (it would drop the socket) and reports too_large", async () => {
+    const hub = new FakeHub();
+    const a = await makeProvider(hub);
+    const errors = [];
+    a.provider.on("error", (e) => errors.push(e.message));
+    expect(MAX_UPDATE_BYTES).toBeLessThan(5e6);
+    a.ydoc.getText("quill").insert(0, "x".repeat(MAX_UPDATE_BYTES + 10));
+    await tick(30);
+    expect(hub.received).toHaveLength(0);
+    expect(errors).toEqual(["too_large"]);
+    // Small edits keep flowing.
+    a.ydoc.getText("quill").insert(0, "ok");
+    await tick(30);
+    expect(hub.received).toHaveLength(1);
   });
 });
