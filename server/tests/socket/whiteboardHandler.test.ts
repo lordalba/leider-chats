@@ -109,7 +109,8 @@ describe("whiteboardHandler", () => {
     let p = waitFor(D, "workspace:item", (d) => d.kind === "whiteboard" && d.action === "updated");
     const renamed = await emit(B, "wb:rename", wbId, " Sketch ");
     expect(renamed.ok).toBe(true);
-    expect(Object.keys(renamed.data).sort()).toEqual(["_id", "title", "updatedAt"]);
+    expect(Object.keys(renamed.data).sort()).toEqual(["_id", "createdBy", "title", "updatedAt"]);
+    expect(renamed.data.createdBy).toBe(String((await Whiteboard.findById(wbId))!.createdBy));
     expect((await p).item.title).toBe("Sketch");
     expect(await emit(B, "wb:rename", wbId, "")).toEqual({ ok: false, error: "invalid" });
 

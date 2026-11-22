@@ -43,6 +43,7 @@ export interface WorkspaceDetail {
     _id: mongoose.Types.ObjectId;
     name?: string;
     participants: ChatParticipantSummary[];
+    admins: string[];
   };
   tasks: ITask[];
   documents: ItemMeta[];
@@ -203,7 +204,7 @@ export async function getWorkspaceDetail(
 
   const [chat, tasks, documents, whiteboards] = await Promise.all([
     ChatRoom.findById(workspace.chatRoomId)
-      .select("name participants")
+      .select("name participants admins")
       .populate("participants", "username profilePictureUrl")
       .lean(),
     Task.find({ workspace: wsId }).sort({ order: 1, createdAt: 1 }),
@@ -218,6 +219,7 @@ export async function getWorkspaceDetail(
       _id: chat._id as mongoose.Types.ObjectId,
       name: chat.name,
       participants: chat.participants as unknown as ChatParticipantSummary[],
+      admins: (chat.admins || []).map(String),
     },
     tasks,
     documents: documents as unknown as ItemMeta[],

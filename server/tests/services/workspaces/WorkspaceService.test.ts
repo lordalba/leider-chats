@@ -136,6 +136,9 @@ describe("WorkspaceService", () => {
     expect(wb.title).toBe("board");
     expect(detail.chat.participants).toHaveLength(3);
     expect(detail.chat.participants[0]).toHaveProperty("username");
+    // The client shows "Clear board" to the board creator or a chat admin.
+    expect((detail.chat as any).admins.map(String)).toEqual((chat.admins || []).map(String));
+    expect(String(wb.createdBy)).toBe(String(alice._id));
   });
 
   test("listWorkspaces returns only workspaces of chats the user is in", async () => {

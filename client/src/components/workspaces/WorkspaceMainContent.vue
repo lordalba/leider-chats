@@ -45,8 +45,28 @@
           Pick a document, or create one.
         </div>
       </div>
-      <div v-else-if="activeTab === 'Whiteboard'" class="tab-placeholder">
-        The whiteboard is coming soon.
+      <div v-else-if="activeTab === 'Whiteboard'" class="items-tab">
+        <ItemList
+          kind="whiteboard"
+          :items="detail.whiteboards || []"
+          :members="members"
+          :selectedId="selectedWbId"
+          @select="selectWhiteboard"
+          @create="(title) => createItem('whiteboard', title)"
+          @rename="(id, title) => renameItem('whiteboard', id, title)"
+          @delete="(id) => deleteItem('whiteboard', id)"
+        />
+        <WhiteboardCanvas
+          v-if="selectedWb"
+          :key="selectedWbId"
+          :whiteboardId="selectedWbId"
+          :connectedUser="connectedUser"
+          :canClear="canClearSelectedWb"
+          @closed="selectWhiteboard(null)"
+        />
+        <div v-else class="tab-placeholder items-placeholder">
+          Pick a whiteboard, or create one.
+        </div>
       </div>
     </div>
     <EmptyState v-else />
@@ -60,6 +80,7 @@ import PresenceBar from "@/components/workspaces/PresenceBar.vue";
 import TaskBoard from "@/components/workspaces/tasks/TaskBoard.vue";
 import ItemList from "@/components/workspaces/ItemList.vue";
 import DocumentEditor from "@/components/workspaces/documents/DocumentEditor.vue";
+import WhiteboardCanvas from "@/components/workspaces/whiteboard/WhiteboardCanvas.vue";
 import { emitWithAck } from "@/workspaces/socketCall";
 import { itemErrorMessage } from "@/workspaces/items";
 
@@ -89,12 +110,14 @@ export default {
     TaskBoard,
     ItemList,
     DocumentEditor,
+    WhiteboardCanvas,
   },
   data() {
     return {
       tabs: TABS,
       activeTab: TABS[0],
       selectedDocId: null,
+      selectedWbId: null,
     };
   },
   computed: {
@@ -114,11 +137,25 @@ export default {
         null
       );
     },
+    selectedWb() {
+      if (!this.detail || !this.selectedWbId) return null;
+      return (
+        (this.detail.whiteboards || []).find((w) => String(w._id) === this.selectedWbId) ||
+        null
+      );
+    },
+    canClearSelectedWb() {
+      const me = this.connectedUser && String(this.connectedUser._id);
+      if (!me || !this.selectedWb) return false;
+      const admins = ((this.detail.chat && this.detail.chat.admins) || []).map(String);
+      return String(this.selectedWb.createdBy) === me || admins.includes(me);
+    },
   },
   watch: {
     workspaceId() {
       // Another workspace: start on its task board with nothing open.
       this.selectedDocId = null;
+      this.selectedWbId = null;
       this.activeTab = TABS[0];
     },
     selectedDoc(doc, previous) {
@@ -128,11 +165,18 @@ export default {
         this.selectDocument(null);
       }
     },
+    selectedWb(wb, previous) {
+      if (!wb && previous && this.selectedWbId) {
+        this.$toast.info(itemErrorMessage("not_found", "whiteboard"));
+        this.selectWhiteboard(null);
+      }
+    },
   },
   methods: {
     setActiveTab(tab) {
       this.activeTab = tab;
       this.selectedDocId = null;
+      this.selectedWbId = null;
       // Switching tabs drops any item-level focus; the tabs-to-be emit
       // `focus` with {kind, id} when the user opens an item.
       this.$emit("focus", null);
@@ -140,6 +184,10 @@ export default {
     selectDocument(id) {
       this.selectedDocId = id || null;
       this.$emit("focus", id ? { kind: "document", id } : null);
+    },
+    selectWhiteboard(id) {
+      this.selectedWbId = id || null;
+      this.$emit("focus", id ? { kind: "whiteboard", id } : null);
     },
     // Resolves { data } on success, null (after a toast) on failure.
     async callItem(kind, action, ...args) {
@@ -161,6 +209,7 @@ export default {
       const item = result.data;
       this.$emit("item-event", { kind, action: "created", item });
       if (kind === "document") this.selectDocument(String(item._id));
+      else this.selectWhiteboard(String(item._id));
     },
     async renameItem(kind, id, title) {
       const result = await this.callItem(kind, "rename", id, title);
@@ -168,6 +217,7 @@ export default {
     },
     async deleteItem(kind, id) {
       if (kind === "document" && id === this.selectedDocId) this.selectDocument(null);
+      if (kind === "whiteboard" && id === this.selectedWbId) this.selectWhiteboard(null);
       const result = await this.callItem(kind, "delete", id);
       if (!result) return;
       this.$emit("item-event", { kind, action: "deleted", item: { _id: id } });

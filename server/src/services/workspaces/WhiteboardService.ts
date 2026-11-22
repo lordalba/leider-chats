@@ -4,10 +4,15 @@ import { WorkspaceError, assertWorkspaceMember, isChatAdmin, toObjectId } from "
 import { ItemMeta, validateItemTitle } from "./DocumentService";
 import { MAX_STROKES_PER_BOARD, validateStroke, validateStrokeId } from "./strokeValidation";
 
-const toMeta = (wb: IWhiteboard): ItemMeta => ({
+// Whiteboard meta also carries createdBy: the client shows "Clear board"
+// only to the creator (or a chat admin).
+type WhiteboardMeta = ItemMeta & { createdBy: string };
+
+const toMeta = (wb: IWhiteboard): WhiteboardMeta => ({
   _id: String(wb._id),
   title: wb.title,
   updatedAt: wb.updatedAt,
+  createdBy: String(wb.createdBy),
 });
 
 async function loadWhiteboardForMember(userId: string, whiteboardId: string, withStrokes = false) {
@@ -31,7 +36,7 @@ export async function createWhiteboard(
   userId: string,
   workspaceId: string,
   title: unknown
-): Promise<ItemMeta> {
+): Promise<WhiteboardMeta> {
   const { workspace } = await assertWorkspaceMember(workspaceId, userId);
   const wb = await Whiteboard.create({
     title: validateItemTitle(title),
@@ -45,7 +50,7 @@ export async function renameWhiteboard(
   userId: string,
   whiteboardId: string,
   title: unknown
-): Promise<ItemMeta & { workspaceId: string }> {
+): Promise<WhiteboardMeta & { workspaceId: string }> {
   const { wb } = await loadWhiteboardForMember(userId, whiteboardId);
   wb.title = validateItemTitle(title);
   await wb.save();
