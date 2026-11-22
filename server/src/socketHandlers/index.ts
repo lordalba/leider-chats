@@ -5,6 +5,7 @@ import messageHandler from "./messageHandler";
 import workspaceHandler from "./workspaces/workspaceHandler";
 import taskHandler from "./workspaces/taskHandler";
 import documentHandler from "./workspaces/documentHandler";
+import whiteboardHandler from "./workspaces/whiteboardHandler";
 
 const socketHandlers = (io: Server) => {
   io.on("connection", (socket) => {
@@ -14,6 +15,7 @@ const socketHandlers = (io: Server) => {
     workspaceHandler(io, socket);
     taskHandler(io, socket);
     documentHandler(io, socket);
+    whiteboardHandler(io, socket);
   });
 };
 
