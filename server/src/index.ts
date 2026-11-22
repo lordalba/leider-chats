@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
+import { socketAuth } from "./socketHandlers/socketAuth";
 import connectDB from "./config/db";
 import authRoutes from "./routes/Auth";
 import userRoutes from "./routes/UserRoutes";
@@ -21,6 +22,7 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 export const io = new Server(server, {
+  maxHttpBufferSize: 5e6,
   cors: {
     origin: "http://localhost:8080",
     // origin: ["http://10.0.0.18:8080", "http://localhost:8080"],
@@ -46,4 +48,5 @@ connectDB();
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
+io.use(socketAuth);
 socketHandlers(io);

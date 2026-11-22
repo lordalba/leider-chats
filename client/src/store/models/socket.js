@@ -14,7 +14,9 @@ const mutations = {
 const actions = {
   initializeSocket({ commit }) {
     if (!state.socket) {
-      const socket = io("http://localhost:3000");
+      const socket = io("http://localhost:3000", {
+        auth: { token: localStorage.getItem("token") },
+      });
       commit("SET_SOCKET", socket);
 
       socket.emit("userOnline", store.state.connectedUser._id);
