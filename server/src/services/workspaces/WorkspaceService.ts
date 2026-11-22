@@ -6,6 +6,7 @@ import Message from "../../models/chatrooms/Message";
 import User from "../../models/User";
 import Task from "../../models/workspaces/Task";
 import DocumentModel from "../../models/workspaces/Document";
+import { yDocManager } from "./YDocManager";
 import Whiteboard from "../../models/workspaces/whiteboard";
 import IWorkspace from "../../types/workspaces/IWorkspace";
 import IMessage from "../../types/chatrooms/IMessage";
@@ -118,6 +119,9 @@ export async function renameWorkspace(
 
 async function purgeWorkspaces(ids: mongoose.Types.ObjectId[]): Promise<void> {
   if (ids.length === 0) return;
+  // Drop live Yjs docs first so a pending debounced save can't outlive them.
+  const docs = await DocumentModel.find({ workspace: { $in: ids } }).select("_id").lean();
+  for (const d of docs) yDocManager.delete(String(d._id));
   await Promise.all([
     Task.deleteMany({ workspace: { $in: ids } }),
     DocumentModel.deleteMany({ workspace: { $in: ids } }),

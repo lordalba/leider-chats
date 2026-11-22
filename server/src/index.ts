@@ -14,6 +14,7 @@ import chatRoomsRoutes from "./routes/chatrooms/ChatRoomsRoutes";
 import workspaceRouter from "./routes/workspaces/WorkspaceRoutes";
 import mediaUploadRoutes from "./utils/MediaUploader";
 import socketHandlers from "./socketHandlers";
+import { yDocManager } from "./services/workspaces/YDocManager";
 import path from "path";
 
 const app = express();
@@ -44,3 +45,17 @@ server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 io.use(socketAuth);
 socketHandlers(io);
+
+// Persist live documents (their debounced saves) before the process exits.
+let shuttingDown = false;
+const shutdown = (signal: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received: saving open documents`);
+  yDocManager
+    .flushAll()
+    .catch((error) => console.error("flushing documents on shutdown failed:", error))
+    .finally(() => process.exit(0));
+};
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

@@ -6,6 +6,7 @@ import User from "../models/User";
 import { WorkspacePresenceService } from "../services/workspaces/WorkspacePresenceService";
 import { broadcastPresence } from "../services/workspaces/WorkspaceService";
 import { refuseUnauthenticated } from "./chatAuth";
+import { yDocManager } from "../services/workspaces/YDocManager";
 
 const connectionHandler = (io: Server, socket: Socket) => {
   console.log("A user connected", socket.id);
@@ -29,6 +30,9 @@ const connectionHandler = (io: Server, socket: Socket) => {
     for (const workspaceId of WorkspacePresenceService.removeSocket(socket.id)) {
       broadcastPresence(io, workspaceId);
     }
+    yDocManager.closeSocket(socket.id).catch((error) =>
+      console.error("closing documents on disconnect failed:", error)
+    );
     const userId = OnlineUserService.removeUserSocket(socket.id);
     const israelTime = moment().tz("Asia/Jerusalem").toDate();
 
