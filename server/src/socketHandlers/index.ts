@@ -3,6 +3,7 @@ import connectionHandler from "./connectionHandler";
 import chatRoomHandler from "./chatRoomHandler";
 import messageHandler from "./messageHandler";
 import workspaceHandler from "./workspaces/workspaceHandler";
+import taskHandler from "./workspaces/taskHandler";
 
 const socketHandlers = (io: Server) => {
   io.on("connection", (socket) => {
@@ -10,6 +11,7 @@ const socketHandlers = (io: Server) => {
     chatRoomHandler(io, socket);
     messageHandler(io, socket);
     workspaceHandler(io, socket);
+    taskHandler(io, socket);
   });
 };
 

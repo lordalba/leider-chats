@@ -18,6 +18,7 @@ const taskSchema = new Schema<ITask>(
       required: true,
     },
     dueDate: { type: Date },
+    order: { type: Number, required: true, default: 0 },
     workspace: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Workspace",
@@ -26,5 +27,7 @@ const taskSchema = new Schema<ITask>(
   },
   { timestamps: true }
 );
+
+taskSchema.index({ workspace: 1, status: 1, order: 1 });
 
 export default mongoose.model("Task", taskSchema);
