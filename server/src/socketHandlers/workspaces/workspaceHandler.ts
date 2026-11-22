@@ -82,12 +82,37 @@ const workspaceHandler = (io: Server, socket: Socket) => {
       const user = await User.findById(toObjectId(userId)).select("username profilePictureUrl");
       if (!user) throw new WorkspaceError("forbidden");
 
+      // The socket may have disconnected while we awaited; the disconnect
+      // handler has already run removeSocket, so adding presence now would
+      // leave a ghost member behind.
+      if (!socket.connected) return { members: WorkspacePresenceService.members(id) };
+
+      const undo = () => {
+        socket.leave(wsRoom(id));
+        WorkspacePresenceService.leave(id, socket.id);
+      };
+
       socket.join(wsRoom(id));
       WorkspacePresenceService.join(id, socket.id, {
         userId: String(userId),
         username: user.username,
         ...(user.profilePictureUrl && { profilePictureUrl: user.profilePictureUrl }),
       });
+
+      // Re-check now that the socket is in the room: an eviction that ran
+      // during the awaits above would otherwise be silently undone. Any
+      // eviction that starts after this point sees the socket in the room.
+      try {
+        await assertWorkspaceMember(id, userId);
+      } catch (err) {
+        undo();
+        throw err;
+      }
+      if (!socket.connected) {
+        undo();
+        return { members: WorkspacePresenceService.members(id) };
+      }
+
       broadcastPresence(io, id);
       return { members: WorkspacePresenceService.members(id) };
     })

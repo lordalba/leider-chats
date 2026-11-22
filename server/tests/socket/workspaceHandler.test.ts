@@ -7,6 +7,8 @@ import chatRoomHandler from "../../src/socketHandlers/chatRoomHandler";
 import connectionHandler from "../../src/socketHandlers/connectionHandler";
 import { WorkspacePresenceService } from "../../src/services/workspaces/WorkspacePresenceService";
 import Workspace from "../../src/models/workspaces/Workspace";
+import ChatRoom from "../../src/models/chatrooms/ChatRoom";
+import User from "../../src/models/User";
 
 let server: Awaited<ReturnType<typeof startTestServer>>;
 let clients: ClientSocket[] = [];
@@ -88,6 +90,43 @@ async function setup() {
   const B = await connect(String(bob._id));
   const C = await connect(String(carol._id));
   return { alice, bob, carol, chat, chatId: String(chat._id), A, B, C };
+}
+
+/**
+ * Holds the next User.findById (the one workspace:join does after its
+ * membership check) until release() is called. `reached` resolves once the
+ * join handler is parked there; release() resolves with the query result.
+ */
+function holdNextUserLookup() {
+  const original = User.findById.bind(User);
+  let open!: () => void;
+  const gate = new Promise<void>((r) => (open = r));
+  let markReached!: () => void;
+  const reached = new Promise<void>((r) => (markReached = r));
+  let result: Promise<unknown> | undefined;
+  const spy = jest.spyOn(User, "findById").mockImplementationOnce(((id: unknown) => {
+    markReached();
+    return {
+      select: (fields: string) =>
+        (result = gate.then(() => (original as any)(id).select(fields).exec())),
+    };
+  }) as any);
+  return {
+    reached,
+    release: async () => {
+      open();
+      await result;
+      // let the handler's continuation (synchronous up to its next await) run
+      await new Promise((r) => setImmediate(r));
+    },
+    restore: () => spy.mockRestore(),
+  };
+}
+
+async function waitForWorkspaceCount(n: number) {
+  for (let i = 0; i < 80 && (await Workspace.countDocuments()) !== n; i++) {
+    await new Promise((r) => setTimeout(r, 25));
+  }
 }
 
 async function makeWorkspace(A: ClientSocket, chatId: string): Promise<string> {
@@ -225,6 +264,99 @@ test("B removed from chat (emit removeParticipantFromChat) → B receives worksp
     ok: false,
     error: "forbidden",
   });
+
+  // B really left ws:<id>: A's focus broadcast must not reach B.
+  const none = expectNoEvent(B, "workspace:presence");
+  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" });
+  await none;
+});
+
+test("eviction race: B evicted while its join is in flight → join acks forbidden, B not in room or presence", async () => {
+  const { bob, chatId, A, B } = await setup();
+  const wsId = await makeWorkspace(A, chatId);
+  await A.emitWithAck("workspace:join", wsId);
+
+  const hold = holdNextUserLookup();
+  try {
+    const joinAck = B.emitWithAck("workspace:join", wsId);
+    await hold.reached; // B passed the membership check, parked before joining
+
+    const revoked = waitFor(B, "workspace:revoked");
+    A.emit("removeParticipantFromChat", chatId, String(bob._id), "bob", "alice");
+    await revoked; // eviction has completed
+
+    await hold.release();
+    expect(await joinAck).toEqual({ ok: false, error: "forbidden" });
+  } finally {
+    hold.restore();
+  }
+
+  expect(WorkspacePresenceService.members(wsId).map((m) => m.userId)).not.toContain(String(bob._id));
+  const none = expectNoEvent(B, "workspace:presence");
+  const aSees = waitFor(A, "workspace:presence");
+  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" });
+  expect((await aSees).members).toHaveLength(1);
+  await none;
+});
+
+test("disconnect race: B disconnects while its join is in flight → no ghost presence entry", async () => {
+  const { alice, chatId, A, B } = await setup();
+  const wsId = await makeWorkspace(A, chatId);
+  await A.emitWithAck("workspace:join", wsId);
+
+  const hold = holdNextUserLookup();
+  try {
+    B.emit("workspace:join", wsId, () => {});
+    await hold.reached;
+
+    const serverSocket = server.io.sockets.sockets.get(B.id!);
+    expect(serverSocket).toBeDefined();
+    const disconnected = new Promise<void>((r) => serverSocket!.once("disconnect", () => r()));
+    B.close();
+    await disconnected; // connectionHandler's removeSocket has already run
+
+    await hold.release();
+  } finally {
+    hold.restore();
+  }
+
+  expect(WorkspacePresenceService.members(wsId).map((m) => m.userId)).toEqual([String(alice._id)]);
+  const aSees = waitFor(A, "workspace:presence");
+  await A.emitWithAck("workspace:focus", wsId, { kind: "task", id: "t1" });
+  expect((await aSees).members.map((m: any) => m.userId)).toEqual([String(alice._id)]);
+});
+
+test("exitRoom by a member → that member gets workspace:revoked; workspace survives", async () => {
+  const { bob, chatId, A, B } = await setup();
+  const wsId = await makeWorkspace(A, chatId);
+  await A.emitWithAck("workspace:join", wsId);
+  await B.emitWithAck("workspace:join", wsId);
+
+  const revoked = waitFor(B, "workspace:revoked");
+  const aSeesOne = waitFor(A, "workspace:presence", (p: any) => p.members.length === 1);
+  B.emit("exitRoom", chatId, String(bob._id), "bob");
+  expect(await revoked).toEqual({ workspaceId: wsId });
+  await aSeesOne;
+
+  expect(await B.emitWithAck("workspace:focus", wsId, null)).toEqual({ ok: false, error: "forbidden" });
+  expect(await Workspace.countDocuments()).toBe(1);
+});
+
+test("exitRoom by the last member → chat and its workspaces are deleted", async () => {
+  const solo = await makeUser("solo");
+  const chat = await makeChat([solo], [solo]);
+  const chatId = String(chat._id);
+  const S = await connect(String(solo._id));
+  const wsId = await makeWorkspace(S, chatId);
+  await S.emitWithAck("workspace:join", wsId);
+
+  const revoked = waitFor(S, "workspace:revoked");
+  S.emit("exitRoom", chatId, String(solo._id), "solo");
+  expect(await revoked).toEqual({ workspaceId: wsId });
+
+  await waitForWorkspaceCount(0);
+  expect(await Workspace.countDocuments()).toBe(0);
+  expect(await ChatRoom.exists({ _id: chat._id })).toBeNull();
 });
 
 test("deleteRoom → workspaces of that chat are deleted and joined sockets get workspace:revoked", async () => {
