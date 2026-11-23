@@ -13,16 +13,27 @@ const mutations = {
 
 const actions = {
   initializeSocket({ commit }) {
-    if (!state.socket) {
-      const socket = io("http://localhost:3000");
-      commit("SET_SOCKET", socket);
-
-      socket.emit("userOnline", store.state.connectedUser._id);
-
-      socket.on("disconnect", () => {
-        console.log("Socket disconnected");
-      });
+    // A socket left over from a previous login carries the old user's token: replace it.
+    if (state.socket) {
+      state.socket.removeAllListeners();
+      state.socket.disconnect();
     }
+
+    // The token lets the server identify this socket for workspace events.
+    const socket = io("http://localhost:3000", {
+      auth: { token: localStorage.getItem("token") },
+    });
+    commit("SET_SOCKET", socket);
+
+    // Announce ourselves on every (re)connect, since the server forgets sockets that drop.
+    const userId = store.state.connectedUser._id;
+    socket.on("connect", () => {
+      socket.emit("userOnline", userId);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
   },
 };
 

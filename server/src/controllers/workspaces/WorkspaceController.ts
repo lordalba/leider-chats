@@ -1,95 +1,33 @@
-import { Request, Response } from "express";
-import Workspace from "../../models/workspaces/Workspace";
+import { Response } from "express";
 import { MyUserRequest } from "../../types/express";
+import { WorkspaceError } from "../../services/workspaces/WorkspaceAccess";
+import { getWorkspaceDetail, listWorkspaces } from "../../services/workspaces/WorkspaceService";
 
-export const createWorkspace = async (req: MyUserRequest, res: Response) => {
-  try {
-    const { name, description, participants } =
-      req.body;
+// Reads only. All workspace writes go over Socket.IO (see socketHandlers/workspaces).
 
-    const workspace = await Workspace.create({
-      name,
-      description,
-      documents: [],
-      whiteboards: [],
-      tasks: [],
-      participants: participants || [],
-      createdBy: req.userId,
-    });
+const STATUS_BY_CODE: Record<string, number> = { forbidden: 403, not_found: 404, invalid: 400 };
 
-    res.status(201).json(workspace);
-  } catch (error) {
-    res.status(500).json({ message: "Error creating workspace", error });
+const sendError = (res: Response, error: unknown): Response => {
+  if (error instanceof WorkspaceError) {
+    return res.status(STATUS_BY_CODE[error.code] || 400).json({ message: error.code });
   }
+  console.error("[workspaces] REST error:", error);
+  return res.status(500).json({ message: "server_error" });
 };
 
 export const getAllWorkspaces = async (req: MyUserRequest, res: Response) => {
   try {
-    const workspaces = await Workspace.find({
-      "participants.userId": req.userId,
-    });
-
-    res.json(workspaces);
+    const chatRoomId = typeof req.query.chatRoomId === "string" ? req.query.chatRoomId : undefined;
+    return res.json(await listWorkspaces(String(req.userId), chatRoomId));
   } catch (error) {
-    res.status(500).json({ message: "Error retrieving workspaces", error });
+    return sendError(res, error);
   }
 };
 
 export const getWorkspaceById = async (req: MyUserRequest, res: Response) => {
   try {
-    const workspace = await Workspace.findById(req.params.id).populate([
-      "documents",
-      "whiteboards",
-      "tasks",
-    ]);
-
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found" });
-    }
-
-    if (
-      !workspace.participants.some(
-        (participant) => participant.userId.toString() === req.userId
-      )
-    ) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    return res.json(workspace);
+    return res.json(await getWorkspaceDetail(String(req.userId), req.params.id));
   } catch (error) {
-    return res.status(500).json({ message: "Error retrieving workspace", error });
-  }
-};
-
-export const updateWorkspace = async (req: Request, res: Response) => {
-  try {
-    const { name, description } = req.body;
-
-    const workspace = await Workspace.findByIdAndUpdate(
-      req.params.id,
-      { name, description },
-      { new: true }
-    );
-
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found" });
-    }
-
-    return res.json(workspace);
-  } catch (error) {
-    return res.status(500).json({ message: "Error updating workspace", error });
-  }
-};
-
-export const deleteWorkspace = async (req: Request, res: Response) => {
-  try {
-    const workspace = await Workspace.findByIdAndDelete(req.params.id);
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found" });
-    }
-
-    return res.json({ message: "Workspace deleted successfully" });
-  } catch (error) {
-    return res.status(500).json({ message: "Error deleting workspace", error });
+    return sendError(res, error);
   }
 };

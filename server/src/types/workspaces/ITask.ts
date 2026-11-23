@@ -7,7 +7,8 @@ export default interface ITask extends Document {
   assignedTo: mongoose.Types.ObjectId[];
   createdBy: mongoose.Types.ObjectId;
   status: TaskStatus;
-  dueDate: Date;
+  order: number;
+  dueDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
   workspace: mongoose.Types.ObjectId;

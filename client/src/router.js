@@ -78,11 +78,11 @@ const router = new VueRouter({
     },
 
     {
-      path: "/workspaces",
+      path: "/workspaces/:workspaceId?",
       name: "workspaces",
       component: Workspaces,
       meta: {
-        title: "chat with your friends",
+        title: "Workspaces",
       },
     },
   ],

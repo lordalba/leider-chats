@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 import Message from "../models/chatrooms/Message";
 import User from "../models/User";
 import ChatRoom from "../models/chatrooms/ChatRoom";
-import { OnlineUserService } from "../services/OnlineUserService";
+import { notifyChatParticipants } from "./notifyChatParticipants";
+import { cascadeDeleteChatWorkspaces, evictUserFromChatWorkspaces } from "./workspaces/revoke";
 import { deleteChatRoom, exitChatRoom, patchAdminPermissions, removeUserFromChat, updateUserAdminInChat } from "../services/ChatRoomService";
 
 const usersInChatRooms: { [chatroomId: string]: Set<string> } = {};
@@ -54,7 +55,7 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
       chatRoomId: chatroomId,
       newAdminPermissions: newAdminPermissions,
     };
-    await updateOnlineChatUsers(chatroomId, emitData, "update-admin-permissions", io);
+    await notifyChatParticipants(io, chatroomId, "update-admin-permissions", emitData);
     await patchAdminPermissions(new mongoose.Types.ObjectId(chatroomId), newAdminPermissions);
   });
 
@@ -64,7 +65,7 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
       userId,
       updateToAdmin
     };
-    await updateOnlineChatUsers(chatroomId, emitData, "update-user-chat-admin", io);
+    await notifyChatParticipants(io, chatroomId, "update-user-chat-admin", emitData);
     await updateUserAdminInChat(new mongoose.Types.ObjectId(chatroomId), new mongoose.Types.ObjectId(userId), updateToAdmin);
   });
 
@@ -75,17 +76,21 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
     };
     const systemExitMessage = await removeUserFromChat(new mongoose.Types.ObjectId(chatRoomId), new mongoose.Types.ObjectId(userId), removedUserName, removerName);
     io.to(chatRoomId).emit("newMessage", systemExitMessage);
-    await updateOnlineChatUsers(chatRoomId, emitData, "remove-user-from-chat", io);
+    await notifyChatParticipants(io, chatRoomId, "remove-user-from-chat", emitData);
+    await runWorkspaceCleanup("removeParticipantFromChat", () =>
+      evictUserFromChatWorkspaces(io, String(chatRoomId), String(userId))
+    );
   });
 
   socket.on("createdChatroom", async (chatroomId) => {
-    await updateOnlineChatUsers(chatroomId, null, "chatroom-created", io);
+    await notifyChatParticipants(io, chatroomId, "chatroom-created", null);
   });
 
   socket.on("deleteRoom", async (chatRoomId, userId) => {
     const emitData = {chatRoomId, deleter: userId}
-    await updateOnlineChatUsers(chatRoomId, emitData, "roomDeleted", io);
+    await notifyChatParticipants(io, chatRoomId, "roomDeleted", emitData);
     await deleteChatRoom(new mongoose.Types.ObjectId(chatRoomId));
+    await runWorkspaceCleanup("deleteRoom", () => cascadeDeleteChatWorkspaces(io, String(chatRoomId)));
     console.log("chatroom was deleted by: " + JSON.stringify(userId))
   });
 
@@ -94,30 +99,29 @@ const chatRoomHandler = (io: Server, socket: Socket) => {
     io.to(chatRoomId).emit("newMessage", systemExitMessage);
 
     const emitData = {chatRoomId, userId}
-    await updateOnlineChatUsers(chatRoomId, emitData, "userExitedChatroom", io);
+    await notifyChatParticipants(io, chatRoomId, "userExitedChatroom", emitData);
+    await runWorkspaceCleanup("exitRoom", async () => {
+      // exitChatRoom deletes the chat when its last participant leaves.
+      const chatStillExists = await ChatRoom.exists({ _id: chatRoomId });
+      if (chatStillExists) {
+        await evictUserFromChatWorkspaces(io, String(chatRoomId), String(userId));
+      } else {
+        await cascadeDeleteChatWorkspaces(io, String(chatRoomId));
+      }
+    });
   });
 
   socket.on("createdChatroom", async (chatroomId) => {
-    await updateOnlineChatUsers(chatroomId, null, "chatroom-created", io);
+    await notifyChatParticipants(io, chatroomId, "chatroom-created", null);
   });
 };
 
-const updateOnlineChatUsers = async (chatroomId: string, emitData: Object | null, emitName: string, io: Server) => {
-  const allChatroomUsers = await ChatRoom.findById(chatroomId);
-
-  if (allChatroomUsers){
-    const onlineUsers =  allChatroomUsers.participants.filter((userId) => OnlineUserService.isUserOnline(String(userId)))
-
-    if (onlineUsers){
-      onlineUsers.forEach((userId) => {
-        const socketIds = OnlineUserService.getUserSockets(String(userId));
-        if (socketIds) {
-        socketIds.forEach((socketId) => {
-          emitData ? io.to(socketId).emit(emitName, emitData) : io.to(socketId).emit(emitName);
-        });
-      }
-      })
-    }
+/** Workspace side effects of chat changes must never break the chat flow. */
+const runWorkspaceCleanup = async (label: string, fn: () => Promise<void>): Promise<void> => {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(`[workspaces] cleanup after ${label} failed:`, err);
   }
 };
 

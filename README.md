@@ -1,3 +1,33 @@
+## Running locally
+
+Requires **Node.js 22** (see `.nvmrc`). Node 25+ will not work: `jsonwebtoken`'s dependency
+`buffer-equal-constant-time` crashes because Node removed `SlowBuffer`.
+
+```sh
+# 1. Server (http://localhost:3000). Reads server/.env (MONGO_URI, JWT_SECRET, PORT, ...)
+cd server
+npm install
+npm run dev
+
+# 2. Client (http://localhost:8080), in a second terminal
+cd client
+npm install
+npm run serve
+```
+
+Open http://localhost:8080, log in, open a chat and click its header to open **Chat Details**.
+Under **Workspaces**, click **New** to create one. Everyone in the chat can open it from there
+or from the **Workspaces** page, and edit its task board, documents and whiteboards together.
+
+Tests:
+
+```sh
+cd server && npx jest      # uses an in-memory MongoDB (or MONGO_TEST_URI if set)
+cd client && npm test      # vitest
+```
+
+---
+
 **Edit a file, create a new file, and clone from Bitbucket in under 2 minutes**
 
 Yoav Is the king of the worldddd
