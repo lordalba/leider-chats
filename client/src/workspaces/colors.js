@@ -16,12 +16,3 @@ export function colorForUser(userId) {
   for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
   return USER_COLORS[hash % USER_COLORS.length];
 }
-
-export function initialsOf(name) {
-  return String(name || "?")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join("");
-}

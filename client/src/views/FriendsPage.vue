@@ -1,92 +1,72 @@
 <template>
   <div class="friends-page">
-    <!-- Main Friends List Section -->
-    <div class="friends-list">
-      <input
-        type="text"
-        placeholder="Search friends..."
-        v-model="searchTerm"
-        class="search-bar"
-      />
-
-      <div
-        v-for="friend in filteredFriends"
-        :key="friend.id"
-        class="friend-card"
-      >
-        <FriendCard :user="friend"></FriendCard>
+    <section class="friends">
+      <div class="toolbar">
+        <input v-model="searchTerm" type="search" placeholder="Search your friends…" class="search" />
+        <b-button v-b-toggle="sidebarId" class="find-button">
+          <i class="fa-solid fa-user-plus"></i> Find friends to add
+        </b-button>
       </div>
 
-      <b-button v-b-toggle.sidebar-footer class="add-friend-btn"
-        >Find friends to add</b-button
-      >
-      <SideBar :friends="friends"></SideBar>
-    </div>
+      <p v-if="loading" class="empty">Loading friends…</p>
+      <p v-else-if="!friends.length" class="empty">No friends yet. Use “Find friends to add” to get started.</p>
+      <p v-else-if="!filteredFriends.length" class="empty">No friends match your search.</p>
+      <div class="list">
+        <FriendCard v-for="friend in filteredFriends" :key="friend._id" :user="friend" @removed="onFriendRemoved" />
+      </div>
+    </section>
 
-    <FriendRequests></FriendRequests>
-    <!-- Chat Button -->
-    <router-link to="/chat">
-      <button class="chat-button" @click="openChat">
-        Chat with your friends
-      </button>
-    </router-link>
+    <FriendRequestsPanel @accepted="loadFriends" />
+    <FindFriendsSidebar :id="sidebarId" :friends="friends" />
   </div>
 </template>
 
 <script>
-import { fetchFriends } from "../api/UserService";
-import FriendCard from "@/components/friendsPage/FriendCard.vue";
-import SideBar from "@/components/friendsPage/SideBar.vue";
-import FriendRequests from "@/components/friendsPage/FriendRequests.vue";
+import { fetchFriends } from "@/api/UserService";
+import FriendCard from "@/components/friends/FriendCard.vue";
+import FriendRequestsPanel from "@/components/friends/FriendRequestsPanel.vue";
+import FindFriendsSidebar from "@/components/friends/FindFriendsSidebar.vue";
 
 export default {
+  name: "FriendsPage",
+  components: { FriendCard, FriendRequestsPanel, FindFriendsSidebar },
   data() {
-    return {
-      friends: [],
-      searchTerm: "",
-    };
-  },
-  components: {
-    SideBar,
-    FriendCard,
-    FriendRequests,
-  },
-  async created() {
-    await this.fetchAllFriends();
-
-    if (this.socket) {
-      this.socket.on("friendStatusUpdate", (updatedFriend) => {
-        console.log("Friend status updated:", updatedFriend);
-        const friendIndex = this.friends.findIndex(
-          (f) => f._id === updatedFriend.id
-        );
-        if (friendIndex !== -1) {
-          this.friends[friendIndex].isOnline = updatedFriend.online;
-        }
-      });
-    }
+    return { friends: [], searchTerm: "", loading: true, sidebarId: "find-friends-sidebar" };
   },
   computed: {
     socket() {
       return this.$store.getters["socket/socket"];
     },
     filteredFriends() {
-      return this.friends.filter((friend) =>
-        friend.username.toLowerCase().includes(this.searchTerm.toLowerCase())
-      );
+      const term = this.searchTerm.trim().toLowerCase();
+      if (!term) return this.friends;
+      return this.friends.filter((friend) => friend.username.toLowerCase().includes(term));
     },
   },
+  created() {
+    if (this.socket) this.socket.on("friendStatusUpdate", this.onFriendStatusUpdate);
+    this.loadFriends();
+  },
+  beforeDestroy() {
+    if (this.socket) this.socket.off("friendStatusUpdate", this.onFriendStatusUpdate);
+  },
   methods: {
-    async fetchAllFriends() {
+    async loadFriends() {
       try {
-        const response = await fetchFriends();
-        this.friends = response.data;
+        const { data } = await fetchFriends();
+        this.friends = data || [];
       } catch (error) {
-        console.error("Error fetching friends:", error);
+        this.$toast.error("Couldn't load your friends.");
+      } finally {
+        this.loading = false;
       }
     },
-    openChat() {
-      // Logic to open the chat interface goes here
+    onFriendStatusUpdate(update) {
+      const friend = this.friends.find((f) => f._id === update.id);
+      if (friend) friend.isOnline = update.online;
+    },
+    onFriendRemoved(friendId) {
+      this.friends = this.friends.filter((f) => f._id !== friendId);
     },
   },
 };
@@ -94,82 +74,42 @@ export default {
 
 <style scoped>
 .friends-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 32px;
+}
+@media (max-width: 900px) {
+  .friends-page {
+    grid-template-columns: 1fr;
+  }
+}
+.toolbar {
   display: flex;
-  gap: 20px;
-}
-
-.friends-list {
-  flex: 3;
-  margin-left: 10%;
-}
-
-.friend-requests-sidebar {
-  flex: 1;
-  background-color: #f9f9f9;
-  padding: 20px;
-  border-radius: 8px;
-  margin-right: 14%;
-  margin-top: 2%;
-}
-
-.search-bar {
-  width: 900px;
-  margin-left: 4%;
-  margin-top: 1%;
-  padding: 10px;
+  gap: 12px;
   margin-bottom: 20px;
-  border-radius: 5px;
-  border: 1px solid #ccc;
 }
-
-.friend-card {
-  align-items: center;
-  margin-left: 4%;
+.search {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
 }
-
-.friend-info {
+.find-button {
+  white-space: nowrap;
+  background-color: #4f8ff0;
+  border: none;
+}
+.list {
   display: flex;
-  gap: 10px;
-  align-items: center;
+  flex-direction: column;
+  gap: 14px;
 }
-
-.profile-picture {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-}
-
-.message-btn {
-  background-color: #28a745;
-  color: white;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 5px;
-}
-
-.add-friend-btn {
-  display: block;
-  width: 60%;
-  padding: 10px;
-  margin-top: 4%;
-  margin-left: 20%;
-  background-color: #65acf8;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  text-align: center;
-}
-
-.chat-button {
-  position: fixed;
-  bottom: 50px;
-  right: 60px;
-  background-color: #4caf50;
-  color: white;
-  padding: 10px 20px;
-  font-size: 130%;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
+.empty {
+  color: var(--text-muted);
 }
 </style>

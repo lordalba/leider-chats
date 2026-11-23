@@ -3,6 +3,7 @@ import mongoose, { Document } from "mongoose";
 export default interface IChatRoom extends Document {
   participants: mongoose.Types.ObjectId[];
   name: string;
+  description: string;
   imageUrl: string;
   isGroupChat: boolean;
   lastMessage: {

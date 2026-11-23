@@ -1,4 +1,4 @@
-import Whiteboard from "../../models/workspaces/whiteboard";
+import Whiteboard from "../../models/workspaces/Whiteboard";
 import { IStroke } from "../../types/workspaces/IWhiteboard";
 import {
   WorkspaceError,

@@ -1,30 +1,8 @@
-import axios from "axios";
+import httpClient from "./httpClient";
 
-const API_URL = "http://localhost:3000/api/workspaces";
+// Reads only. Workspace writes go over the socket (see src/socket/socketCall.js).
 
-// Reads only. Workspace writes go over the socket (see src/workspaces/socketCall.js).
+export const fetchWorkspaces = (chatRoomId) =>
+  httpClient.get("/workspaces", { params: chatRoomId ? { chatRoomId } : {} });
 
-export const fetchWorkspaces = async (chatRoomId) => {
-  const token = getAuthToken();
-
-  return await axios.get(API_URL, {
-    params: chatRoomId ? { chatRoomId } : {},
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};
-
-export const fetchWorkspace = async (workspaceId) => {
-  const token = getAuthToken();
-
-  return await axios.get(`${API_URL}/${workspaceId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};
-
-const getAuthToken = () => {
-  return localStorage.getItem("token");
-};
+export const fetchWorkspace = (workspaceId) => httpClient.get(`/workspaces/${workspaceId}`);

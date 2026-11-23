@@ -5,7 +5,7 @@ import {
   encodeAwarenessUpdate,
   removeAwarenessStates,
 } from "y-protocols/awareness";
-import { emitWithAck } from "./socketCall";
+import { emitWithAck } from "../socket/socketCall";
 
 const REMOTE = "remote";
 

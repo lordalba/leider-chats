@@ -1,5 +1,5 @@
 import Workspace from "../../src/models/workspaces/Workspace";
-import Whiteboard from "../../src/models/workspaces/whiteboard";
+import Whiteboard from "../../src/models/workspaces/Whiteboard";
 import { clearTestDb, connectTestDb, disconnectTestDb } from "../helpers/db";
 import { makeChat, makeUser } from "../helpers/fixtures";
 import { quietLogs, registerAll } from "../helpers/registerAll";

@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import mongoose from "mongoose";
 import Workspace from "../../models/workspaces/Workspace";
 import Document from "../../models/workspaces/Document";
-import Whiteboard from "../../models/workspaces/whiteboard";
+import Whiteboard from "../../models/workspaces/Whiteboard";
 import { WorkspacePresenceService } from "../../services/workspaces/WorkspacePresenceService";
 import { deleteWorkspacesForChat } from "../../services/workspaces/WorkspaceService";
 import { toObjectId } from "../../services/workspaces/WorkspaceAccess";

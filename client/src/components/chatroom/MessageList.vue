@@ -1,155 +1,151 @@
 <template>
   <div ref="messageContainer" class="message-list">
-    <div v-for="message in messagesWithDates" :key="message.id">
-      <div class="date-separator-wrapper">
-        <div v-if="message.isDate" class="date-separator">
-          {{ message.date }}
-        </div>
-        <div v-else-if="message.type === 'system' && message.chatRoomId === chatroomId" class="system-message">
-          {{ message.content }}
-        </div>
-      </div>
-      <MessageItem
-        v-if="!message.isDate && message.type !== 'system'"
-        :key="message.id"
-        :message="message"
-        :participantsAmount="participantsAmount"
-        :isGroupChat="isGroupChat"
-        :isOwnMessage="isOwnMessage(message)"
-      />
+    <div v-if="!chatroomId" class="welcome">
+      <h2>Welcome to the<br />Leider chats Chatrooms!</h2>
+      <p>Choose a chat from the list on your left :)</p>
     </div>
-    <p v-if="!messages.length && chatroomId != null" class="quiet">
-      Pretty quiet here.. Write a message to your friend to lighten up the
-      conversation.
-    </p>
-    <div v-else-if="chatroomId == null" class="quiet">
-      <div class="welcome">Welcome to the<br />Leider chats Chatrooms!</div>
-      <br />
-      <br />
-      <p>Choose a friend to talk to from the list on your left :)</p>
-    </div>
+
+    <template v-else>
+      <p v-if="loading" class="quiet">Loading messages…</p>
+      <p v-else-if="!messages.length" class="quiet">
+        Pretty quiet here.. Write a message to lighten up the conversation.
+      </p>
+
+      <template v-for="entry in entries">
+        <div v-if="entry.isDate" :key="entry.key" class="date-separator"><span>{{ entry.label }}</span></div>
+        <div v-else-if="entry.message.type === 'system'" :key="entry.key" class="system-message">
+          <span>{{ entry.message.content }}</span>
+        </div>
+        <MessageItem
+          v-else
+          :key="entry.key"
+          :message="entry.message"
+          :participants-amount="participantsAmount"
+          :is-group-chat="isGroupChat"
+          :is-own-message="isOwnMessage(entry.message)"
+          :can-moderate="isGroupChat && isConnectedUserAdmin"
+        />
+      </template>
+    </template>
   </div>
 </template>
 
 <script>
+import { format, isToday, isYesterday } from "date-fns";
 import { fetchChatMessages } from "@/api/ChatRoomService";
 import MessageItem from "./MessageItem.vue";
-import store from "@/store/store";
-import { format } from "date-fns";
-// import TopChatCard from "./TopChatCard.vue";
+
+const dayLabel = (date) => {
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  return format(date, "dd MMM yyyy");
+};
 
 export default {
-  components: {
-    MessageItem,
-    // TopChatCard
-  },
+  name: "MessageList",
+  components: { MessageItem },
   props: {
-    chatroomId: {
-      type: String,
-      required: true,
-    },
-    isGroupChat: {
-      type: Boolean,
-      required: false,
-    },
-    participantsAmount: {
-      type: Number,
-      required: false,
-    },
+    /** null until a chat is picked. */
+    chatroomId: { type: String, default: null },
+    isGroupChat: { type: Boolean, default: false },
+    participantsAmount: { type: Number, default: 0 },
+    isConnectedUserAdmin: { type: Boolean, default: false },
   },
   data() {
-    return {
-      messages: [],
-    };
+    return { messages: [], loading: false };
   },
   computed: {
-    messagesWithDates() {
-      const groupedMessages = [];
-      let lastDate = null;
-
-      this.messages.forEach((message) => {
-        const messageDate = format(new Date(message.createdAt), "dd MMM yyyy");
-
-        if (messageDate !== lastDate) {
-          groupedMessages.push({ isDate: true, date: messageDate });
-          lastDate = messageDate;
-        }
-
-        groupedMessages.push(message);
-      });
-
-      return groupedMessages;
-    },
     socket() {
       return this.$store.getters["socket/socket"];
     },
-  },
-  mounted() {
-    if (this.socket) {
-      this.socket.on("newMessage", (message) => {
-        if (message.chatRoomId === this.chatroomId) {
-          this.messages.push(message);
-          this.$nextTick(() => {
-            this.scrollToBottom();
-          });
+    myId() {
+      return this.$store.state.connectedUser._id;
+    },
+    /** Messages with a date separator before each new day. */
+    entries() {
+      const entries = [];
+      let lastDay = null;
+      this.messages.forEach((message) => {
+        const date = new Date(message.createdAt || message.timestamp);
+        const day = format(date, "yyyy-MM-dd");
+        if (day !== lastDay) {
+          entries.push({ isDate: true, key: `date-${day}`, label: dayLabel(date) });
+          lastDay = day;
         }
+        entries.push({ isDate: false, key: message._id, message });
       });
-
-      this.socket.on("messagesMarkedAsRead", ({ chatroomId, user }) => {
-        if (this.chatroomId === chatroomId) {
-          this.messages = this.messages.map((message) => {
-            if (!message.seenBy.includes(user._id)) {
-              message.seenBy.push({
-                _id: user._id,
-                username: user.username,
-                profilePictureUrl: user.profilePictureUrl,
-              });
-            }
-            return message;
-          });
-        }
-      });
-    }
+      return entries;
+    },
   },
   watch: {
     chatroomId: {
       immediate: true,
-      async handler(newChatroomId) {
-        if (newChatroomId == null) {
-          this.messages = [];
-        }
-
-        await this.loadMessages(newChatroomId);
+      handler(chatroomId) {
+        this.messages = [];
+        if (chatroomId) this.loadMessages(chatroomId);
       },
     },
-    participantsAmount: {
-      immediate: true,
-    },
-    isGroupChat: {
-      immediate: true,
-      async handler() {},
-    },
+  },
+  mounted() {
+    if (this.socket) {
+      this.socket.on("newMessage", this.onNewMessage);
+      this.socket.on("messageUpdated", this.onMessageUpdated);
+      this.socket.on("messagesMarkedAsRead", this.onMessagesMarkedAsRead);
+    }
+  },
+  beforeDestroy() {
+    // Without this, every visit adds another listener and messages appear twice.
+    if (this.socket) {
+      this.socket.off("newMessage", this.onNewMessage);
+      this.socket.off("messageUpdated", this.onMessageUpdated);
+      this.socket.off("messagesMarkedAsRead", this.onMessagesMarkedAsRead);
+    }
   },
   methods: {
     async loadMessages(chatroomId) {
+      this.loading = true;
       try {
-        if (chatroomId) {
-          const response = await fetchChatMessages(chatroomId);
-          this.messages = response.data;
-          this.$nextTick(() => {
-            this.scrollToBottom();
-          });
-        }
+        const { data } = await fetchChatMessages(chatroomId);
+        if (chatroomId !== this.chatroomId) return; // switched chats meanwhile
+        this.messages = data;
+        this.scrollToBottom();
       } catch (error) {
-        console.error("Failed to load messages:", error);
+        this.$toast.error("Couldn't load the messages.");
+      } finally {
+        this.loading = false;
       }
     },
+    onNewMessage(message) {
+      if (message.chatRoomId !== this.chatroomId) return;
+      if (this.messages.some((m) => m._id === message._id)) return;
+      this.messages.push(message);
+      this.scrollToBottom();
+    },
+    /** An edit or delete: replace the message in place. */
+    onMessageUpdated(updated) {
+      if (updated.chatRoomId !== this.chatroomId) return;
+      const index = this.messages.findIndex((m) => m._id === updated._id);
+      if (index !== -1) this.messages.splice(index, 1, updated);
+    },
+    onMessagesMarkedAsRead({ chatroomId, user }) {
+      if (this.chatroomId !== chatroomId || !user) return;
+      const userId = String(user._id);
+      this.messages = this.messages.map((message) => {
+        const seenBy = message.seenBy || [];
+        // seenBy holds user objects (or plain ids), so compare by id.
+        if (seenBy.some((s) => String(s && s._id ? s._id : s) === userId)) return message;
+        const reader = { _id: user._id, username: user.username, profilePictureUrl: user.profilePictureUrl };
+        return { ...message, seenBy: [...seenBy, reader] };
+      });
+    },
     isOwnMessage(message) {
-      return message.senderId._id === store.state.connectedUser._id;
+      return !!message.senderId && message.senderId._id === this.myId;
     },
     scrollToBottom() {
-      const container = this.$refs.messageContainer;
-      container.scrollTop = container.scrollHeight;
+      this.$nextTick(() => {
+        const container = this.$refs.messageContainer;
+        if (container) container.scrollTop = container.scrollHeight;
+      });
     },
   },
 };
@@ -158,49 +154,50 @@ export default {
 <style scoped>
 .message-list {
   flex: 1;
-  padding: 20px;
+  min-height: 0;
+  padding: 16px 20px;
   overflow-y: auto;
-  background: url("../../../public/full-bloom.png");
+  background: var(--chat-bg) url("~@/assets/chat-background.png");
+  background-blend-mode: var(--chat-bg-blend);
 }
-
 .quiet {
   text-align: center;
   opacity: 0.7;
 }
-
-.date-separator-wrapper {
-  text-align: center;
-}
-
-.date-separator {
-  display: inline-block;
-  margin: 10px auto;
-  padding: 5px 10px;
-  font-size: 0.9em;
-  color: #3b3838;
-  background-color: #dfcece;
-  border-radius: 10px;
-  text-align: center;
-}
-
 .welcome {
   text-align: center;
-  opacity: 0.85;
+  margin-top: 10vh;
+}
+.welcome h2 {
   font-weight: bold;
-  font-size: 300%;
+  font-size: 2.6em;
+  opacity: 0.85;
 }
-
+.welcome p {
+  margin-top: 30px;
+  opacity: 0.8;
+}
+.date-separator,
 .system-message {
-  text-align: center; /* Center text horizontally */
-  font-style: italic;
-  color: rgb(34, 34, 34);
-  background-color: gray;
-  margin: 10px auto; /* Center the element itself horizontally */
-  padding: 8px; /* Add padding to prevent text from touching edges */
-  max-width: 300px;
-  border-radius: 25px;
-  opacity: 0.6;
-  display: inline-block; /* Ensure element width wraps content */
+  text-align: center;
+  margin: 10px 0;
 }
-
+.date-separator span {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 0.8em;
+  border-radius: 10px;
+  background-color: var(--chip-bg);
+  color: var(--chip-text);
+}
+.system-message span {
+  display: inline-block;
+  max-width: 420px;
+  padding: 6px 14px;
+  font-size: 0.85em;
+  font-style: italic;
+  border-radius: 14px;
+  background-color: var(--chip-bg);
+  color: var(--chip-text);
+}
 </style>

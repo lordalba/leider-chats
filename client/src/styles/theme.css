@@ -1,0 +1,133 @@
+/*
+ * Colours for light and dark mode. Components use these variables instead of fixed colours;
+ * ThemeManager toggles the `dark` class on <html>.
+ */
+:root {
+  --bg: #e8e8e8;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --text: #1f2328;
+  --text-muted: #6b7280;
+  --border: #dcdfe4;
+  --hover: #e9ebef;
+  --accent: #45815c;
+  --accent-soft: #e3f1e8;
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  --chat-bg: #efeae2;
+  --chat-bg-blend: normal;
+  --bubble-own: #d9fdd3;
+  --bubble-own-text: #111b21;
+  --bubble-other: #ffffff;
+  --bubble-other-text: #111b21;
+  --chip-bg: rgba(255, 255, 255, 0.9);
+  --chip-text: #54656f;
+  --code-bg: #1e1e2e;
+  --code-text: #e4e4ef;
+  --inline-code-bg: rgba(0, 0, 0, 0.07);
+
+  color-scheme: light;
+}
+
+html.dark {
+  --bg: #111418;
+  --surface: #1c2128;
+  --surface-2: #161b22;
+  --text: #e6e8eb;
+  --text-muted: #9aa4b2;
+  --border: #30363d;
+  --hover: #262c35;
+  --accent: #5fb37f;
+  --accent-soft: #1f3a2a;
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.55);
+
+  --chat-bg: #0b141a;
+  --chat-bg-blend: soft-light;
+  --bubble-own: #005c4b;
+  --bubble-own-text: #e9edef;
+  --bubble-other: #202c33;
+  --bubble-other-text: #e9edef;
+  --chip-bg: #182229;
+  --chip-text: #8696a0;
+  --code-bg: #0d1117;
+  --code-text: #e6edf3;
+  --inline-code-bg: rgba(255, 255, 255, 0.12);
+
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Third-party widgets that don't know about our variables. */
+html.dark .modal-content,
+html.dark .b-sidebar,
+html.dark .dropdown-menu {
+  background-color: var(--surface);
+  color: var(--text);
+}
+html.dark .dropdown-item {
+  color: var(--text);
+}
+html.dark .dropdown-item:hover {
+  background-color: var(--hover);
+}
+html.dark .form-control,
+html.dark .custom-select {
+  background-color: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+html.dark .close {
+  color: var(--text);
+}
+html.dark .swal2-popup {
+  background: var(--surface);
+  color: var(--text);
+}
+html.dark .swal2-title,
+html.dark .swal2-html-container {
+  color: var(--text);
+}
+html.dark .ql-toolbar.ql-snow,
+html.dark .ql-container.ql-snow {
+  border-color: var(--border);
+}
+html.dark .ql-snow .ql-stroke {
+  stroke: var(--text);
+}
+html.dark .ql-snow .ql-fill {
+  fill: var(--text);
+}
+html.dark .ql-snow .ql-picker {
+  color: var(--text);
+}
+html.dark .ql-editor.ql-blank::before {
+  color: var(--text-muted);
+}
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color: var(--text);
+}
+
+/* Default dark look for plain form fields (components can still style their own). */
+/* :where() keeps this at the lowest priority so component styles still win. */
+html.dark :where(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]), textarea, select) {
+  background-color: var(--surface-2);
+  border-color: var(--border);
+}
+html.dark ::placeholder {
+  color: var(--text-muted);
+}
+html.dark .b-sidebar .b-sidebar-body {
+  background-color: var(--surface);
+}
+html.dark .btn-close,
+html.dark .b-sidebar .close {
+  filter: invert(1);
+}

@@ -2,7 +2,7 @@ import Message from "../../../src/models/chatrooms/Message";
 import Workspace from "../../../src/models/workspaces/Workspace";
 import Task from "../../../src/models/workspaces/Task";
 import Document from "../../../src/models/workspaces/Document";
-import Whiteboard from "../../../src/models/workspaces/whiteboard";
+import Whiteboard from "../../../src/models/workspaces/Whiteboard";
 import { WorkspaceError } from "../../../src/services/workspaces/WorkspaceAccess";
 import {
   createWorkspace,

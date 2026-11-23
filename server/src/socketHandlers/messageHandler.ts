@@ -7,7 +7,15 @@ import ChatRoom from "../models/chatrooms/ChatRoom";
 
 const messageHandler = (io: Server, socket: Socket) => {
   socket.on("sendMessage", async (message) => {
-    const { chatRoomId, senderId, content, type, fileName, mediaUrl } = message;
+   try {
+    if (!message || typeof message !== "object") return;
+    const { chatRoomId, content, type, fileName, mediaUrl } = message;
+    // Trust the logged-in user over what the browser claims.
+    const senderId = socket.data && socket.data.userId ? socket.data.userId : message.senderId;
+    if (!mongoose.isValidObjectId(chatRoomId) || !mongoose.isValidObjectId(senderId)) return;
+    if (!(await ChatRoom.exists({ _id: chatRoomId, participants: senderId }))) return;
+    const hasText = typeof content === "string" && content.trim().length > 0;
+    if (!hasText && !mediaUrl) return;
 
     const messageToSend = await saveChatMessage(
       chatRoomId,
@@ -33,6 +41,10 @@ const messageHandler = (io: Server, socket: Socket) => {
 
       await handleUpdatingAllOnlineUsers(chatRoomId, senderId, io);
     }
+   } catch (error) {
+    // A bad message must never take the whole server down.
+    console.error("sendMessage failed:", error);
+   }
   });
 
   socket.on("typing", (data) => {

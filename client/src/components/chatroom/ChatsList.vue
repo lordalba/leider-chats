@@ -1,172 +1,153 @@
 <template>
-  <div class="sidebar">
-    <SearchBar :value="searchInput"
-  @onSearch="handleSearch"></SearchBar>
-    <div class="contacts">
-      <div
-        v-if="loading"
-        style="
-          opacity: 0.7;
-          text-align: center;
-          margin-top: 10%;
-          font-size: larger;
-        "
-      >
-        Loading...
-      </div>
-      <div v-if="error" class="error">{{ error }}</div>
-      <ChatCard
-        v-for="(chatroom, index) in searchFilteredChatrooms"
-        :key="`${chatroom._id}-${index}-${chatroom.unreadMessages}`"
-        :chatroom="chatroom"
-        :chatroom-id="chatroom._id"
-        @chatroom-selected="handleChatroomSelected"
-      />
-      <p
-        v-if="!searchFilteredChatrooms.length && !loading"
-        style="opacity: 0.7; text-align: center; margin-top: 10%"
-      >
-        No one to Talk to..
-      </p>
-      <div style="text-align: center">
-        <button class="create-chat" @click="showModal = true">
-          create new chat
-        </button>
-        <CreateChatModal
-          :is-open="showModal"
-          :friends="friends"
-          @close="showModal = false"
-        ></CreateChatModal>
-      </div>
+  <aside class="chats-list">
+    <div class="list-header">
+      <SearchBar :value="searchInput" @onSearch="(query) => (searchInput = query)" />
+      <button class="new-group" title="Start a private chat or a group" @click="showModal = true">
+        <i class="fa-solid fa-pen-to-square"></i> New chat
+      </button>
     </div>
-  </div>
+
+    <div class="contacts">
+      <p v-if="loading" class="status">Loading…</p>
+      <p v-else-if="error" class="status error">{{ error }}</p>
+      <template v-else>
+        <ChatCard
+          v-for="chatroom in searchFilteredChatrooms"
+          :key="chatroom._id"
+          :chatroom="chatroom"
+          :chatroom-id="chatroom._id"
+          :class="{ selected: chatroom._id === selectedChatroomId }"
+          @chatroom-selected="handleChatroomSelected"
+        />
+        <p v-if="!searchFilteredChatrooms.length" class="status">
+          {{ searchInput ? "No chats match your search." : "No chats yet. Add friends to start talking!" }}
+        </p>
+      </template>
+    </div>
+
+    <CreateChatModal
+      :is-open="showModal"
+      :friends="friends"
+      @close="showModal = false"
+      @created="(chat) => $emit('chat-created', chat)"
+    />
+  </aside>
 </template>
 
 <script>
-import SearchBar from "../SearchBar.vue";
+import SearchBar from "@/components/common/SearchBar.vue";
 import ChatCard from "./ChatCard.vue";
 import CreateChatModal from "./createChat/CreateChatModal.vue";
 import { fetchFriends } from "@/api/UserService";
+import { chatDisplayName } from "@/chat/chatNames";
 
-/* eslint-disable */
 export default {
-  components: {
-    ChatCard,
-    CreateChatModal,
-    SearchBar
-  },
+  name: "ChatsList",
+  components: { ChatCard, CreateChatModal, SearchBar },
   props: {
-    chatrooms: {
-      type: Array,
-      Required: true,
-    },
-    loading: {
-      type: Boolean,
-      Required: true,
-    },
-    error: {
-      type: String,
-      Required: true,
-    },
+    chatrooms: { type: Array, required: true },
+    loading: { type: Boolean, default: false },
+    error: { type: String, default: null },
+    selectedChatroomId: { type: String, default: null },
   },
   data() {
-    return {
-      showModal: false,
-      friends: [],
-      selectedChatroomId: null,
-      localChatrooms: [],
-      searchInput: ""
-    };
+    return { showModal: false, friends: [], searchInput: "" };
   },
-  async created() {
-    await this.fetchAllFriends();
-
-    if (this.socket) {
-      this.socket.on("newChatMessage", (data) => {
-        this.$emit("new-message", data);
-      });
-      this.socket.on("roomDeleted", (data) => {
-        this.$emit("chatroom-deleted", data);
-      });
-    }
-  },
-  mounted() {},
   computed: {
     socket() {
       return this.$store.getters["socket/socket"];
     },
+    myId() {
+      return this.$store.state.connectedUser && this.$store.state.connectedUser._id;
+    },
     searchFilteredChatrooms() {
-      return this.chatrooms.filter((chatroom) => chatroom.name.toLowerCase().includes(this.searchInput))
+      const query = (this.searchInput || "").trim().toLowerCase();
+      if (!query) return this.chatrooms;
+      return this.chatrooms.filter((chatroom) =>
+        chatDisplayName(chatroom, this.myId).toLowerCase().includes(query)
+      );
+    },
+  },
+  created() {
+    if (this.socket) {
+      this.socket.on("newChatMessage", this.onNewChatMessage);
+      this.socket.on("roomDeleted", this.onRoomDeleted);
+    }
+    this.loadFriends();
+  },
+  beforeDestroy() {
+    if (this.socket) {
+      this.socket.off("newChatMessage", this.onNewChatMessage);
+      this.socket.off("roomDeleted", this.onRoomDeleted);
     }
   },
   methods: {
-    handleSearch(query) {
-      this.searchInput = query;
-  },
-    async fetchAllFriends() {
+    onNewChatMessage(data) {
+      this.$emit("new-message", data);
+    },
+    onRoomDeleted(data) {
+      this.$emit("chatroom-deleted", data);
+    },
+    async loadFriends() {
       try {
-        const response = await fetchFriends();
-        this.friends = response.data;
+        const { data } = await fetchFriends();
+        this.friends = data || [];
       } catch (error) {
-        console.error("Error fetching friends:", error);
+        // The list still works without friends; only the "New group" dialog needs them.
+        this.friends = [];
       }
     },
     handleChatroomSelected(chatroomId) {
       this.$emit("chatroom-selected", chatroomId);
-      const selectedChatroomIndex = this.localChatrooms.findIndex(
-        (chatroom) => chatroom._id === chatroomId
-      );
-      this.selectedChatroomId = this.localChatrooms[selectedChatroomIndex]._id;
-      this.localChatrooms[selectedChatroomIndex].unreadMessages = 0;
-    },
-  },
-  watch: {
-    chatrooms: {
-      immediate: true,
-      handler(newVal) {
-        this.localChatrooms = JSON.parse(JSON.stringify(newVal)); // Reactive deep copy
-      },
     },
   },
 };
 </script>
 
 <style scoped>
-.sidebar {
-  width: 300px;
-  height: 85vh;
-  background-color: #f5f5f5;
+.chats-list {
+  width: 320px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  background-color: var(--surface-2);
+  border-right: 1px solid var(--border);
+  min-height: 0;
 }
-.search-bar {
+.list-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px;
-  width: 200%;
-  text-decoration: solid;
+  border-bottom: 1px solid var(--border);
+}
+.new-group {
+  align-self: stretch;
+  padding: 7px 12px;
+  border: 1px solid #2fa7f7;
+  border-radius: 8px;
+  background: transparent;
+  color: #2fa7f7;
+  font-weight: 600;
+  cursor: pointer;
+}
+.new-group:hover {
+  background: #2fa7f7;
+  color: #fff;
 }
 .contacts {
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
-
-.create-chat {
-  margin-top: 10%;
-  margin-bottom: 10%;
-  width: 200px;
-  height: 60px;
-  border: 3px solid #2fa7f7;
-  border-radius: 45px;
-  transition: all 0.3s;
-  cursor: pointer;
-  background: white;
-  font-size: 1.2em;
-  font-weight: 550;
+.status {
+  opacity: 0.7;
+  text-align: center;
+  margin-top: 20px;
+  padding: 0 12px;
 }
-
-.create-chat:hover {
-  background: #57bbf5;
-  color: white;
-  font-size: 1.3em;
+.status.error {
+  color: #dc3545;
+  opacity: 1;
 }
 </style>

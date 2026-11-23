@@ -28,6 +28,8 @@ const MessageSchema = new Schema<IMessage>(
       type: Date,
       default: Date.now,
     },
+    editedAt: { type: Date, default: null },
+    deleted: { type: Boolean, default: false },
     seenBy: [
       {
         type: Schema.Types.ObjectId,

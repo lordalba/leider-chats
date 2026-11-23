@@ -1,50 +1,13 @@
-import axios from "axios";
+import httpClient from "./httpClient";
 
-const API_URL = "http://localhost:3000/api/chatrooms";
+export const fetchChatRooms = () => httpClient.get("/chatrooms/get");
 
-export const fetchChatRooms = async () => {
-  const token = getAuthToken();
+export const fetchChatMessages = (chatroomId) => httpClient.get(`/chatrooms/messages/${chatroomId}`);
 
-  return await axios.get(`${API_URL}/get`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};
+export const fetchRelatedChatrooms = (friendId) => httpClient.get(`/chatrooms/related/${friendId}`);
 
-export const fetchChatMessages = async (chatroomId) => {
-  const token = getAuthToken();
-
-  return await axios.get(`${API_URL}/messages/${chatroomId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};
-
-export const fetchRelatedChatrooms = async (friendId) => {
-  const token = getAuthToken();
-
-  return await axios.get(`${API_URL}/related/${friendId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};
-
-export const createChatroom = async (chatroom) => {
-  const token = getAuthToken();
-
-  const response = await axios.post(`${API_URL}/create`, chatroom, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "multipart/form-data",
-    },
-  });
-
-  return response;
-};
-
-const getAuthToken = () => {
-  return localStorage.getItem("token");
-};
+/**
+ * `formData` holds participants (JSON array of the other people's ids), and for groups a name
+ * and an optional chatImage. One other person = their private chat (reused if it exists).
+ */
+export const createChatroom = (formData) => httpClient.post("/chatrooms/create", formData);

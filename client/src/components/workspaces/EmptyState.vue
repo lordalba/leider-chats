@@ -21,6 +21,6 @@ export default {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
-  color: gray;
+  color: var(--text-muted);
 }
 </style>

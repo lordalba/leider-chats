@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emitWithAck, errorMessage } from "../src/workspaces/socketCall.js";
+import { emitWithAck, errorMessage } from "../src/socket/socketCall.js";
 
 const fakeSocket = (respond) => ({
   emit: vi.fn((...args) => {

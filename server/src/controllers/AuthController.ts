@@ -1,68 +1,62 @@
 import { Request, Response } from "express";
-import User from "../models/User"; // Assuming you have a User model
-import bcrypt from "bcrypt"; // For password hashing
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-
+import User from "../models/User";
 import { JWT_SECRET } from "../config/jwt";
+import { asyncHandler } from "../http/asyncHandler";
+import { HttpError } from "../http/HttpError";
+import { uploadUrl } from "../utils/files";
 
-export const registerUser = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
-  const { username, email, password, age, profession, location } = req.body;
+const PASSWORD_MIN_LENGTH = 6;
+const SESSION_LENGTH = "7d";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists." });
-    }
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const normalizeEmail = (email: unknown) => (typeof email === "string" ? email.trim().toLowerCase() : "");
+/** Matches an email regardless of case (older accounts may have been saved with capitals). */
+const emailQuery = (email: string) => ({ email: new RegExp(`^${escapeRegex(email)}$`, "i") });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+const defaultProfilePicture = () =>
+  process.env.PROFILE_PICTURE_DEFAULT_PATH || uploadUrl("profilePictures/default-avatar.svg");
 
-    const newUser = new User({
-      username,
-      email,
-      password: hashedPassword,
-      age,
-      profession,
-      location,
-      profilePictureUrl: process.env.PROFILE_PICTURE_DEFAULT_PATH,
-      backgroundPictureUrl: process.env.BACKGROUND_PICTURE_DEFAULT_PATH,
-    });
-    await newUser.save();
+export const registerUser = asyncHandler(async (req: Request, res: Response) => {
+  const { username, password, age, profession, location } = req.body;
+  const email = normalizeEmail(req.body.email);
 
-    return res.status(201).json({ message: "User registered successfully." });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error." });
+  if (typeof username !== "string" || !username.trim()) throw HttpError.badRequest("Please choose a username.");
+  if (!EMAIL_PATTERN.test(email)) throw HttpError.badRequest("Please enter a valid email address.");
+  if (typeof password !== "string" || password.length < PASSWORD_MIN_LENGTH) {
+    throw HttpError.badRequest(`The password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
   }
-};
+  const parsedAge = Number(age);
+  if (!Number.isInteger(parsedAge) || parsedAge < 1 || parsedAge > 120) throw HttpError.badRequest("Please enter a valid age.");
 
-export const loginUser = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
-  const { email, password } = req.body;
+  if (await User.exists(emailQuery(email))) throw HttpError.badRequest("User already exists.");
 
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials." });
-    }
+  await User.create({
+    username: username.trim(),
+    email,
+    password: await bcrypt.hash(password, 10),
+    age: parsedAge,
+    profession: typeof profession === "string" && profession.trim() ? profession.trim() : "—",
+    location: typeof location === "string" && location.trim() ? location.trim() : "—",
+    profilePictureUrl: defaultProfilePicture(),
+    backgroundPictureUrl: process.env.BACKGROUND_PICTURE_DEFAULT_PATH,
+  });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials." });
-    }
+  res.status(201).json({ message: "User registered successfully." });
+});
 
-    // Generate JWT token
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
-      expiresIn: "1h",
-    });
+export const loginUser = asyncHandler(async (req: Request, res: Response) => {
+  const email = normalizeEmail(req.body.email);
+  const { password } = req.body;
+  // The client recognises this exact message to show a helpful hint.
+  const invalid = () => HttpError.badRequest("Invalid credentials.");
 
-    return res.status(200).json({ token });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error." });
-  }
-};
+  if (!email || typeof password !== "string") throw invalid();
+  const user = await User.findOne(emailQuery(email));
+  if (!user || !(await bcrypt.compare(password, user.password))) throw invalid();
+
+  const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: SESSION_LENGTH });
+  res.status(200).json({ token });
+});

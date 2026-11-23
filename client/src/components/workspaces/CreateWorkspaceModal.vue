@@ -21,7 +21,7 @@
 </template>
 
 <script>
-import { emitWithAck, errorMessage } from "@/workspaces/socketCall";
+import { emitWithAck, errorMessage } from "@/socket/socketCall";
 
 export default {
   name: "CreateWorkspaceModal",
@@ -67,7 +67,7 @@ export default {
 
 <style scoped>
 .hint {
-  color: gray;
+  color: var(--text-muted);
   font-size: 0.9em;
 }
 </style>

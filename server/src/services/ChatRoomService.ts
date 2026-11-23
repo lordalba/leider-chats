@@ -4,6 +4,12 @@ import IMessage from "../types/chatrooms/IMessage";
 import IChatRoom from "../types/chatrooms/IChatRoom";
 import mongoose from "mongoose";
 
+/** A group whose last admin left gets a new admin: the longest-standing member. */
+const ensureGroupHasAdmin = async (chat: IChatRoom): Promise<void> => {
+  if (!chat.isGroupChat || chat.admins.length > 0 || chat.participants.length === 0) return;
+  await ChatRoom.updateOne({ _id: chat._id }, { $addToSet: { admins: chat.participants[0] } });
+};
+
 export const createChatRoom = async (
   participantIds: mongoose.Types.ObjectId[],
   name: string | null,
@@ -23,6 +29,18 @@ export const createChatRoom = async (
   await chatRoom.save();
 
   return chatRoom;
+};
+
+/** The private chat between two users, created if it doesn't exist yet. */
+export const findOrCreateDirectChat = async (
+  userId: mongoose.Types.ObjectId,
+  otherUserId: mongoose.Types.ObjectId
+): Promise<IChatRoom> => {
+  const existing = await ChatRoom.findOne({
+    isGroupChat: false,
+    participants: { $all: [userId, otherUserId], $size: 2 },
+  });
+  return existing || createChatRoom([userId, otherUserId], null, null, userId);
 };
 
 export const fetchUserChats = async (
@@ -57,17 +75,19 @@ export const fetchUsersRelatedChats = async (
 
 export const fetchChatMessages = async (
   chatRoomId: mongoose.Types.ObjectId,
-  limit: number = 50
+  limit: number = 200
 ): Promise<IMessage[]> => {
+  // Take the newest messages, then return them oldest-first for display.
   const messages = await Message.find({ chatRoomId })
     .populate("senderId", "username profilePictureUrl")
     .populate("seenBy", "username profilePictureUrl")
-    .sort({ timestamp: 1 }) // Get latest messages first
+    .sort({ timestamp: -1 })
     .limit(limit)
     .exec();
 
-  return messages;
+  return messages.reverse();
 };
+
 
 export const patchAdminPermissions = async (
   chatRoomId: mongoose.Types.ObjectId,
@@ -86,7 +106,7 @@ export const updateUserAdminInChat = async (
   updateToAdmin
     ? await ChatRoom.findByIdAndUpdate(
         chatRoomId,
-        { $push: { admins: participantId } },
+        { $addToSet: { admins: participantId } },
         { new: true }
       )
     : await ChatRoom.findByIdAndUpdate(
@@ -102,11 +122,12 @@ export const removeUserFromChat = async (
   removedUserName: string,
   removerName: string
 ) => {
-  await ChatRoom.findByIdAndUpdate(
+  const updatedChatRoom = await ChatRoom.findByIdAndUpdate(
     chatRoomId,
-    { $pull: { participants: participantId } },
+    { $pull: { participants: participantId, admins: participantId } },
     { new: true }
   );
+  if (updatedChatRoom) await ensureGroupHasAdmin(updatedChatRoom);
 
   const message = new Message({
     chatRoomId,
@@ -140,7 +161,12 @@ export const saveChatMessage = async (
   await message.save();
 
   await ChatRoom.findByIdAndUpdate(chatRoomId, {
-    lastMessage: { content, timestamp: message.timestamp },
+    lastMessage: {
+      content:
+        content ||
+        (type === "image" ? "🖼️ Photo" : type === "voice" ? "🎤 Voice message" : `📎 ${fileName || "File"}`),
+      timestamp: message.timestamp,
+    },
   });
 
   return message.populate("senderId", "username profilePictureUrl");
@@ -158,7 +184,9 @@ export const fetchUnreadMessagesCount = async (
   return unreadMessagesCount;
 };
 
+/** Deletes the chat and all of its messages. */
 export const deleteChatRoom = async (chatRoomId: mongoose.Types.ObjectId) => {
+  await Message.deleteMany({ chatRoomId });
   await ChatRoom.deleteOne({ _id: chatRoomId });
 };
 
@@ -169,12 +197,15 @@ export const exitChatRoom = async (
 ) => {
   const updatedChatRoom = await ChatRoom.findByIdAndUpdate(
     chatRoomId,
-    { $pull: { participants: participantId } },
+    { $pull: { participants: participantId, admins: participantId } },
     { new: true }
   );
+  if (updatedChatRoom) await ensureGroupHasAdmin(updatedChatRoom);
 
+  // The last person left: remove the chat entirely.
   if (updatedChatRoom && updatedChatRoom.participants.length === 0) {
-    await ChatRoom.findByIdAndDelete(chatRoomId);
+    await deleteChatRoom(chatRoomId);
+    return null;
   }
 
   const message = new Message({
@@ -188,20 +219,3 @@ export const exitChatRoom = async (
   return message;
 };
 
-export const markUnreadMessagesAsSeen = async (
-  unreadMessage: IMessage[],
-  userId: mongoose.Types.ObjectId
-): Promise<void> => {
-  try {
-    unreadMessage.forEach(async (unreadMessage: any) => {
-      let message = await Message.findById(unreadMessage._id);
-
-      if (message) {
-        message.seenBy.push(userId);
-        await message.save();
-      }
-    });
-  } catch (error) {
-    console.error("Error updating message seen status:", error);
-  }
-};

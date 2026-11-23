@@ -32,7 +32,7 @@ export default {
 }
 .label {
   font-size: 0.8em;
-  color: gray;
+  color: var(--text-muted);
   margin-right: 8px;
 }
 .presence-avatar {

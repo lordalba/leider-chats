@@ -40,7 +40,7 @@
   .tabs button {
     padding: 10px 15px;
     border: none;
-    background: #f5f5f5;
+    background: var(--surface-2);
     cursor: pointer;
   }
   .tabs button.active {

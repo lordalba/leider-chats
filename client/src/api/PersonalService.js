@@ -1,28 +1,6 @@
-import axios from "axios";
+import httpClient from "./httpClient";
 
-const API_URL = "http://localhost:3000/api/personal";
+export const fetchUserData = () => httpClient.get("/personal/get");
 
-export const fetchUserData = async () => {
-    const token = getAuthToken();
-  
-    return await axios.get(`${API_URL}/get`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  };
-
-export const updateProfile = async (formData) => {
-  const token = getAuthToken();
-
-  return await axios.put(`${API_URL}/update-profile`, formData, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "multipart/form-data",
-    },
-  });
-};
-
-const getAuthToken = () => {
-  return localStorage.getItem("token");
-};
+/** `formData` holds username, aboutMe, skills (JSON array) and an optional profilePicture. */
+export const updateProfile = (formData) => httpClient.put("/personal/update-profile", formData);

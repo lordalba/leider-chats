@@ -19,6 +19,12 @@ Open http://localhost:8080, log in, open a chat and click its header to open **C
 Under **Workspaces**, click **New** to create one. Everyone in the chat can open it from there
 or from the **Workspaces** page, and edit its task board, documents and whiteboards together.
 
+Test accounts for local development (safe to run more than once):
+
+```sh
+cd server && npm run seed   # alice@test.com … frank@test.com, password: test1234
+```
+
 Tests:
 
 ```sh

@@ -56,7 +56,7 @@
 </template>
 
 <script>
-import ConfirmationModal from "@/components/ConfirmationModal.vue";
+import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
 import UserAvatar from "./UserAvatar.vue";
 
 export default {
@@ -117,7 +117,7 @@ export default {
 .item-list {
   width: 260px;
   flex-shrink: 0;
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--border);
   padding-right: 12px;
 }
 .create {
@@ -129,7 +129,7 @@ export default {
   flex: 1;
   min-width: 0;
   padding: 6px 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 6px;
 }
 .create button {
@@ -143,7 +143,7 @@ export default {
   opacity: 0.5;
 }
 .empty {
-  color: gray;
+  color: var(--text-muted);
   font-size: 0.9em;
 }
 ul {
@@ -160,7 +160,7 @@ li {
   cursor: pointer;
 }
 li:hover {
-  background: #ececec;
+  background: var(--hover);
 }
 li.active {
   background: #43792d;

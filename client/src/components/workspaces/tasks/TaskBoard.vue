@@ -44,7 +44,7 @@
 import TaskCard from "./TaskCard.vue";
 import TaskEditModal from "./TaskEditModal.vue";
 import { STATUSES, STATUS_LABELS, groupTasks, orderBetween } from "@/workspaces/taskBoard";
-import { emitWithAck, errorMessage } from "@/workspaces/socketCall";
+import { emitWithAck, errorMessage } from "@/socket/socketCall";
 
 export default {
   name: "TaskBoard",
@@ -175,7 +175,7 @@ export default {
   overflow-x: auto;
 }
 .column {
-  background: #f0f0f0;
+  background: var(--surface-2);
   border-radius: 10px;
   padding: 10px;
   min-height: 200px;
@@ -192,7 +192,7 @@ export default {
   margin-bottom: 10px;
 }
 .count {
-  color: gray;
+  color: var(--text-muted);
   font-weight: 400;
 }
 .cards {
@@ -209,6 +209,6 @@ export default {
   text-align: left;
 }
 .add-btn:hover {
-  background: #e2e2e2;
+  background: var(--hover);
 }
 </style>

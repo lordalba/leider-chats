@@ -1,166 +1,113 @@
 <template>
-  <div class="friend-item" @click="selectChatroom">
-    <div class="profile-picture-wrapper">
-      <img
-        :src="friend?.profilePictureUrl || chatroom?.imageUrl"
-        alt="Profile picture"
-        class="friend-avatar"
-      />
+  <div class="chat-card" role="button" tabindex="0" @click="select" @keyup.enter="select">
+    <img
+      v-avatar="chatroom.isGroupChat ? 'group' : 'user'"
+      :src="picture"
+      :alt="name"
+      class="chat-picture"
+    />
+    <div class="chat-info">
+      <p class="chat-name">{{ name }}</p>
+      <p class="chat-preview">{{ preview }}</p>
     </div>
-    <!-- Display info based on whether it's a group chat or private chat -->
-    <div v-if="!chatroom.isGroupChat" class="friend-info">
-      <p class="friend-name">{{ friend?.username || "Friend" }}</p>
-      <p class="friend-message">
-        Last connected: {{ friend && formatLastConnected(friend.lastConnected) }}
-      </p>
-    </div>
-    <div v-else class="friend-info">
-      <p class="friend-name">{{ chatroom?.name || "Group Chat" }}</p>
-      <p v-if="chatroom?.lastMessage" class="friend-message">
-        {{ chatroom.lastMessage.content }}
-        {{ formatLastConnected(chatroom.lastMessage.timestamp) }}
-      </p>
-    </div>
-    <div v-if="chatroom.unreadMessages !== 0" class="unread">{{ chatroom.unreadMessages }}</div>
+    <span v-if="chatroom.unreadMessages > 0" class="unread">{{ chatroom.unreadMessages }}</span>
   </div>
 </template>
 
 <script>
-import { isToday, format } from "date-fns";
-/* eslint-disable */
+import { format, isToday } from "date-fns";
+import { chatDisplayName, chatPicture, otherParticipant } from "@/chat/chatNames";
+
+const formatTime = (date) => {
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return "";
+  return isToday(value) ? format(value, "HH:mm") : format(value, "dd MMM yyyy, HH:mm");
+};
+
 export default {
+  name: "ChatCard",
   props: {
-    chatroom: {
-      type: Object,
-      required: true,
-    },
-    chatroomId: {
-      type: String,
-      required: true,
-    },
-  },
-  data() {
-    return {
-      friend: null,
-    };
-  },
-  mounted() {
-    this.handleFriendCreation();
+    chatroom: { type: Object, required: true },
+    chatroomId: { type: String, required: true },
   },
   computed: {
-    socket() {
-      return this.$store.getters["socket/socket"];
+    myId() {
+      return this.$store.state.connectedUser && this.$store.state.connectedUser._id;
+    },
+    name() {
+      return chatDisplayName(this.chatroom, this.myId);
+    },
+    picture() {
+      return chatPicture(this.chatroom, this.myId);
+    },
+    preview() {
+      const last = this.chatroom.lastMessage;
+      if (last && last.content) return `${last.content} · ${formatTime(last.timestamp)}`;
+      if (this.chatroom.isGroupChat) return "No messages yet";
+      const friend = otherParticipant(this.chatroom, this.myId);
+      return friend && friend.lastConnected ? `Last seen ${formatTime(friend.lastConnected)}` : "";
     },
   },
   methods: {
-    handleFriendCreation() {
-      if (!this.chatroom.isGroupChat) {
-        this.friend = this.extractFriendFromChatroom();
-      }
-    },
-    extractFriendFromChatroom() {
-      const chatParticipants = this.chatroom.participants || [];
-
-      return chatParticipants.find(
-        (participant) => participant._id !== this.$store.state.connectedUser._id
-      );
-    },
-    formatLastConnected(date) {
-      const lastConnectedDate = new Date(date);
-      if (isToday(lastConnectedDate)) {
-        return `${format(lastConnectedDate, "HH:mm")}`;
-      }
-      return `${format(lastConnectedDate, "dd MMM yyyy")} at ${format(
-        lastConnectedDate,
-        "HH:mm"
-      )}`;
-    },
-    selectChatroom() {
+    select() {
       this.$emit("chatroom-selected", this.chatroomId);
-      this.chatroom.unreadMessages = 0;
     },
   },
-  watch: {
-  chatroom: {
-    handler() {
-      this.handleFriendCreation();
-    },
-    deep: true,
-  },
-},
 };
 </script>
 
 <style scoped>
-.friend-item {
+.chat-card {
   display: flex;
-  padding: 10px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
   cursor: pointer;
-  border-bottom: 1px solid rgb(230, 230, 230);
-  border-spacing: 10px;
+  border-bottom: 1px solid var(--border);
 }
-
-.friend-item:hover {
-  background-color: #dddddd;
+.chat-card:hover,
+.chat-card:focus,
+.chat-card.selected {
+  background-color: var(--hover);
+  outline: none;
 }
-
-.friend-item:focus {
-  background-color: #dddddd;
-}
-
-.profile-picture-wrapper {
-  position: relative;
-}
-
-.friend-avatar {
-  width: 55px;
-  height: 55px;
-  background-color: #bbbbbb;
+.chat-picture {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  margin-right: 10px;
   object-fit: cover;
+  background: #fff;
+  flex-shrink: 0;
 }
-
-.status-dot {
-  position: absolute;
-  bottom: 33%;
-  right: 15%;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  border: 2px solid white;
-}
-
-.status-dot.online {
-  background-color: #26f52d;
-}
-
-.status-dot.offline {
-  background-color: #b8a9a8;
-}
-
-.friend-info {
+.chat-info {
   flex: 1;
+  min-width: 0;
 }
-.friend-name {
-  font-size: larger;
-  font-weight: bold;
+.chat-name {
+  margin: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.friend-message {
-  color: #666;
-  font-size: 0.9em;
+.chat-preview {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.85em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
 .unread {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background-color: #1aa721;
+  color: #fff;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 5%;
-  width: 20px;
-  height: 20px;
-  background-color: #1aa721;
-  color: rgb(255, 255, 255);
-  border-radius: 50%;
-  font-size: 12px;
 }
 </style>

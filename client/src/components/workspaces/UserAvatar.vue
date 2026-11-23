@@ -4,13 +4,13 @@
     :style="{ width: size + 'px', height: size + 'px', fontSize: size * 0.4 + 'px', borderColor: color }"
     :title="name"
   >
-    <img v-if="src && !failed" :src="src" :alt="name" @error="failed = true" />
-    <span v-else class="initials" :style="{ backgroundColor: color }">{{ initials }}</span>
+    <img :src="src && !failed ? src : defaultAvatar" :alt="name" @error="failed = true" />
   </span>
 </template>
 
 <script>
-import { colorForUser, initialsOf } from "@/workspaces/colors";
+import { colorForUser } from "@/workspaces/colors";
+import { DEFAULT_AVATAR } from "@/utils/avatar";
 
 export default {
   name: "UserAvatar",
@@ -21,14 +21,11 @@ export default {
     size: { type: Number, default: 32 },
   },
   data() {
-    return { failed: false };
+    return { failed: false, defaultAvatar: DEFAULT_AVATAR };
   },
   computed: {
     color() {
       return colorForUser(this.userId);
-    },
-    initials() {
-      return initialsOf(this.name);
     },
   },
   watch: {

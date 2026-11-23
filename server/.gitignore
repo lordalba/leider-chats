@@ -2,7 +2,9 @@
 node_modules
 /dist
 **/node_modules
-**/server/uploads/chatrooms/media
+# Files users upload while using the app (not part of the code)
+/uploads/chatrooms/media/
+/uploads/gifs/
 
 # local env files
 .env.local

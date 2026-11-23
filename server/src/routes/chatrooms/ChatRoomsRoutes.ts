@@ -1,30 +1,22 @@
 import express from "express";
 import {
-  getUserChats,
+  createChatroom,
   getChatMessages,
   getRelatedChatroomsWithFriend,
-  createChatroom,
-  updateAdminPermissions,
+  getUserChats,
 } from "../../controllers/chatrooms/ChatRoomsController";
 import { authenticate } from "../../middlewares/AuthMiddleware";
-import multer from "multer";
+import { imageOnlyUpload } from "../../utils/uploads";
 
 const router = express.Router();
-const upload = multer({ dest: "uploads/" });
+const groupPictureUpload = imageOnlyUpload("chatImage", 5, "Only images can be used as a group picture.");
 
 router.get("/get", authenticate, getUserChats);
-
 router.get("/messages/:chatRoomId", authenticate, getChatMessages);
-
 router.get("/related/:friendId", authenticate, getRelatedChatroomsWithFriend);
+router.post("/create", authenticate, groupPictureUpload, createChatroom);
 
-router.post(
-  "/create",
-  authenticate,
-  upload.single("chatImage"),
-  createChatroom
-);
-
-router.patch("/update-permissions", updateAdminPermissions);
+// Admin settings (e.g. "only admins can send messages") are changed over the socket,
+// where the server checks that the sender is an admin.
 
 export default router;

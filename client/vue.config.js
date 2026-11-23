@@ -1,4 +1,3 @@
-const { defineConfig } = require('@vue/cli-service');
 const path = require('path');
 
 module.exports = {
@@ -11,8 +10,15 @@ module.exports = {
       // path.resolve(__dirname, 'node_modules/vue/dist/vue.esm.js')
     )
   },
-  // defineConfig({
-  //   transpileDependencies: true
-  // })
-
+  devServer: {
+    port: 8080,
+    client: {
+      overlay: {
+        warnings: false,
+        // "ResizeObserver loop ..." is a harmless browser notice, not a real error:
+        // don't cover the whole page with it during development.
+        runtimeErrors: (error) => !/ResizeObserver loop/.test(error && error.message ? error.message : ""),
+      },
+    },
+  },
 }

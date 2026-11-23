@@ -1,145 +1,130 @@
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click="closeModal">
-    <div class="modal-content" @click.stop>
-      <i
-        class="fa-solid fa-xmark close-icon"
-        @click="closeModal"
-      ></i>
+  <div v-if="isOpen" class="overlay" @click="$emit('close')">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="message-details-title" @click.stop>
+      <header>
+        <h3 id="message-details-title">Message details</h3>
+        <button class="close" aria-label="Close" @click="$emit('close')"><i class="fa-solid fa-xmark"></i></button>
+      </header>
 
-      <div class="slides">
-        <div class="slide">
-          <h3>Message Details</h3>
-          <div class="member-selection">
-            <MessageItem
-              :message="message"
-              :isOwnMessage="true"
-              :onPropetriesMode="true"
-            />
-          </div>
-          <br />
-          Seen by:
-          <div class="seen-by-list">
-            <label class="seenby-unit"
-              v-for="(user, index) in filteredSeenBy"
-              :key="user._id + '-' + index"
-            >
-              <div v-if="user._id != $store.state.connectedUser._id">
-                <img
-                  :src="user.profilePictureUrl"
-                  alt="Profile Picture"
-                  class="profile-picture"
-                />
-                {{ user.username }}
-              </div>
-            </label>
-            <label v-if="filteredSeenBy.length === 0" style="opacity: 0.4"
-              >Seen by None.. :(</label
-            >
-          </div>
-        </div>
+      <div class="preview">
+        <MessageContent :message="message" />
+        <p class="sent">Sent {{ sentAt }}<span v-if="message.editedAt"> · edited {{ editedAt }}</span></p>
       </div>
+
+      <h4>Seen by</h4>
+      <ul v-if="readers.length" class="readers">
+        <li v-for="user in readers" :key="user._id">
+          <img v-avatar :src="user.profilePictureUrl" :alt="user.username" class="picture" />
+          {{ user.username }}
+        </li>
+      </ul>
+      <p v-else class="empty">Nobody has seen it yet.</p>
     </div>
   </div>
 </template>
 
-
-
 <script>
-/* eslint-disable */
+import { format } from "date-fns";
+import MessageContent from "./MessageContent.vue";
+
+const formatDate = (value) => (value ? format(new Date(value), "dd MMM yyyy, HH:mm") : "");
+
 export default {
   name: "MessageDetailsModal",
-  components: {
-    MessageItem: () => import("./MessageItem.vue"),
-  },
+  components: { MessageContent },
   props: {
-    isOpen: {
-      type: Boolean,
-      default: false,
-    },
-    message: {
-      type: Object,
-      required: true,
-    },
-  },
-  methods: {
-    closeModal() {
-      this.$emit("close");
-    },
+    isOpen: { type: Boolean, default: false },
+    message: { type: Object, required: true },
   },
   computed: {
-    filteredSeenBy() {
-      return this.message.seenBy.filter(
-        (user) => user._id !== this.$store.state.connectedUser._id
-      );
+    readers() {
+      const me = this.$store.state.connectedUser._id;
+      // seenBy may contain plain ids for messages that arrived live; only show populated users.
+      return (this.message.seenBy || []).filter((user) => user && user._id && user._id !== me);
     },
-  },
-  watch: {
-    message: {
-      immediate: true,
-      handler() {
-      },
+    sentAt() {
+      return formatDate(this.message.createdAt || this.message.timestamp);
+    },
+    editedAt() {
+      return formatDate(this.message.editedAt);
     },
   },
 };
 </script>
 
-
 <style scoped>
-.modal-overlay {
+.overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
+  z-index: 2000;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000; /* Ensure it stays above other elements */
-}
-
-.modal-content {
-  position: relative;
-  width: 80%;
-  max-width: 600px;
   padding: 20px;
-  background: white;
-  overflow: hidden;
-  border-radius: 10px;
 }
-
-.close-icon {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 24px;
+.dialog {
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 18px 22px;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+h3 {
+  margin: 0;
+  font-size: 1.2em;
+}
+h4 {
+  font-size: 1em;
+  margin: 14px 0 8px;
+}
+.close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted);
   cursor: pointer;
 }
-
-.seen-by-list {
-  overflow-y: auto;
-  max-height: 100px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  display: block;
-  margin: 5px 0;
-  padding: 8px;
-  border: 2px solid rgb(204, 204, 204);
-  border-radius: 45px;
-  font-size: 16px;
+.preview {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bubble-own);
+  color: var(--bubble-own-text);
 }
-
-.seenby-unit {
-  margin-right: 2%;
+.sent {
+  margin: 6px 0 0;
+  font-size: 0.75em;
+  opacity: 0.7;
 }
-
-.profile-picture {
-  width: 30px; /* Adjust size */
-  height: 30px; /* Adjust size */
-  border: 1px solid #555;
-  border-radius: 50%; /* Circular picture */
-  margin: 2px; /* Center the picture and pull it up */
-  object-fit: cover; /* Ensure the picture covers the area */
+.readers {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.readers li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+.picture {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+}
+.empty {
+  color: var(--text-muted);
 }
 </style>

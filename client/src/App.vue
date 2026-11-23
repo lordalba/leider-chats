@@ -1,46 +1,32 @@
 <template>
   <div id="app" class="app-container">
-    <Header />
-    <div class="main-content">
+    <AppHeader />
+    <main class="main-content">
       <RouterView />
-    </div>
-    <Footer />
+    </main>
   </div>
 </template>
 
 <script>
-/* eslint-disable */
-import { RouterView } from "vue-router";
-import Header from "./components/Header.vue";
-import Footer from "./components/Footer.vue";
+import AppHeader from "./components/AppHeader.vue";
 
 export default {
   name: "App",
-  components: {
-    Header,
-    Footer
-  },
+  components: { AppHeader },
 };
 </script>
 
 <style>
-/* Flexbox layout to push footer to the bottom */
 #app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh; /* Full height of the viewport */
-  background-color: #e8e8e8;
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text);
   font-family: "Lexend", sans-serif;
 }
 
 .main-content {
-  flex: 1; /* Take up the available space */
-}
-
-.footer {
-  text-align: center;
-  padding: 13px;
-  background-color: #f1f1f1;
-  color: #555;
+  flex: 1;
 }
 </style>

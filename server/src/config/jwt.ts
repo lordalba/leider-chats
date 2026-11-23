@@ -1,6 +1,4 @@
-import dotenv from "dotenv";
+import "./env";
 
-// Load .env here so the secret is available no matter which module imports it first.
-dotenv.config();
-
+/** Secret used to sign and verify login tokens (REST and sockets). */
 export const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";

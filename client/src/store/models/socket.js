@@ -1,5 +1,7 @@
 import io from "socket.io-client";
 import store from "@/store/store";
+import { SERVER_URL } from "@/api/httpClient";
+import { getToken } from "@/auth/tokenStorage";
 
 const state = {
   socket: null,
@@ -20,8 +22,8 @@ const actions = {
     }
 
     // The token lets the server identify this socket for workspace events.
-    const socket = io("http://localhost:3000", {
-      auth: { token: localStorage.getItem("token") },
+    const socket = io(SERVER_URL, {
+      auth: { token: getToken() },
     });
     commit("SET_SOCKET", socket);
 
@@ -34,6 +36,13 @@ const actions = {
     socket.on("disconnect", () => {
       console.log("Socket disconnected");
     });
+  },
+  disconnectSocket({ commit }) {
+    if (state.socket) {
+      state.socket.removeAllListeners();
+      state.socket.disconnect();
+    }
+    commit("SET_SOCKET", null);
   },
 };
 

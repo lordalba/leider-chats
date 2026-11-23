@@ -1,8 +1,9 @@
-const API_URL = "http://localhost:3000/api/uploads";
+import httpClient from "./httpClient";
 
-export const uploadMessageMedia = async (formData) => {
-  return await fetch(`${API_URL}/uploadMedia`, {
-    method: "POST",
-    body: formData,
-  });
+/** Uploads a chat attachment. Resolves with `{ fileUrl, fileName, mimeType, size }`. */
+export const uploadMessageMedia = async (file) => {
+  const formData = new FormData();
+  formData.append("media", file);
+  const { data } = await httpClient.post("/uploads/uploadMedia", formData);
+  return data;
 };

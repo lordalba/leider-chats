@@ -23,6 +23,11 @@ const chatRoomSchema = new Schema<IChatRoom>(
       type: String,
       required: false,
     },
+    description: {
+      type: String,
+      default: "",
+      maxlength: 500,
+    },
     isGroupChat: {
       type: Boolean,
       required: true

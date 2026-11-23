@@ -50,13 +50,13 @@ export default {
 .sidebar {
   width: 300px;
   flex-shrink: 0;
-  background: #f5f5f5;
+  background: var(--surface-2);
   padding: 20px;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
 }
 .muted {
-  color: gray;
+  color: var(--text-muted);
   font-size: 0.9em;
 }
 .group {
@@ -66,7 +66,7 @@ export default {
   font-size: 0.8em;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #777;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 .workspace-list {
@@ -77,7 +77,7 @@ export default {
 .workspace-list li {
   padding: 10px;
   cursor: pointer;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border);
 }
 .workspace-list li.active {
   background-color: #43792d;

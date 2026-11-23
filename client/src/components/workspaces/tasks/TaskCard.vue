@@ -86,7 +86,7 @@ export default {
 
 <style scoped>
 .task-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   padding: 10px;
   margin-bottom: 8px;
@@ -102,7 +102,7 @@ export default {
 }
 .description {
   font-size: 0.85em;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 4px;
   overflow: hidden;
   display: -webkit-box;
@@ -117,7 +117,7 @@ export default {
   font-size: 0.8em;
 }
 .due {
-  color: #555;
+  color: var(--text-muted);
 }
 .due.overdue {
   color: #b81010;

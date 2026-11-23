@@ -15,7 +15,7 @@ import { QuillBinding } from "y-quill";
 import "quill/dist/quill.snow.css";
 import { SocketYProvider } from "@/workspaces/SocketYProvider";
 import { colorForUser } from "@/workspaces/colors";
-import { errorMessage } from "@/workspaces/socketCall";
+import { errorMessage } from "@/socket/socketCall";
 
 Quill.register("modules/cursors", QuillCursors);
 
@@ -96,7 +96,7 @@ export default {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   position: relative;
 }

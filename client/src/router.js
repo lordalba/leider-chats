@@ -1,95 +1,76 @@
-import Home from "./views/Home.vue";
-import Login from "./views/Login.vue";
 import VueRouter from "vue-router";
-import Register from "./views/Register.vue";
+import LoginPage from "./views/LoginPage.vue";
+import RegisterPage from "./views/RegisterPage.vue";
 import FriendsPage from "./views/FriendsPage.vue";
-import Profile from "./views/Profile.vue";
-import About from "./views/About.vue";
-import ChatRoom from "./views/ChatRoom.vue";
-import Workspaces from "./views/Workspaces.vue";
+import ProfilePage from "./views/ProfilePage.vue";
+import ChatRoomsPage from "./views/ChatRoomsPage.vue";
+import WorkspacesPage from "./views/WorkspacesPage.vue";
+import store from "./store/store";
 
-/* eslint-disable */
 const router = new VueRouter({
-  scrollBehavior: function (to, from, savedPosition) {
-    document.getElementById("app").scrollIntoView();
+  scrollBehavior() {
+    return { x: 0, y: 0 };
   },
   routes: [
+    // The main page: chatrooms when logged in, otherwise the login page.
     {
       path: "/",
-      name: "Home",
-      component: Home,
-      meta: {
-        title: "Home Page", // Set the title for this route
-      },
+      redirect: () => (store.state.connectedUser ? "/chatrooms" : "/login"),
     },
-
     {
       path: "/login",
-      name: "log in",
-      component: Login,
-      meta: {
-        title: "Log in",
-      },
+      name: "login",
+      component: LoginPage,
+      meta: { title: "Log in", guestOnly: true },
     },
-
     {
       path: "/register",
-      name: "Register",
-      component: Register,
-      meta: {
-        title: "Register",
-      },
+      name: "register",
+      component: RegisterPage,
+      meta: { title: "Sign up", guestOnly: true },
     },
-
+    {
+      path: "/chatrooms",
+      name: "chatrooms",
+      component: ChatRoomsPage,
+      meta: { title: "Chatrooms", requiresAuth: true },
+    },
+    {
+      path: "/workspaces/:workspaceId?",
+      name: "workspaces",
+      component: WorkspacesPage,
+      meta: { title: "Workspaces", requiresAuth: true },
+    },
     {
       path: "/friends",
       name: "friends",
       component: FriendsPage,
-      meta: {
-        title: "friends",
-      },
+      meta: { title: "Friends", requiresAuth: true },
     },
-
-    {
-      path: "/about",
-      name: "aboutUs",
-      component: About,
-      meta: {
-        title: "aboutUs",
-      },
-    },
-
-    {
-      path: "/chatrooms",
-      name: "chat with your friends",
-      component: ChatRoom,
-      meta: {
-        title: "chat with your friends",
-      },
-    },
-
     {
       path: "/profile",
-      name: "profile page",
-      component: Profile,
-      meta: {
-        title: "profile page",
-      },
+      name: "profile",
+      component: ProfilePage,
+      meta: { title: "Profile", requiresAuth: true },
     },
-
-    {
-      path: "/workspaces/:workspaceId?",
-      name: "workspaces",
-      component: Workspaces,
-      meta: {
-        title: "Workspaces",
-      },
-    },
+    // Unknown addresses (including the removed Home/About pages) go to the main page.
+    { path: "*", redirect: "/" },
   ],
 });
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title || "Letter for every soldier"; // Set the document title
+  const loggedIn = !!store.state.connectedUser;
+
+  if (to.matched.some((r) => r.meta.requiresAuth) && !loggedIn) {
+    next({ path: "/login", query: { redirect: to.fullPath } });
+    return;
+  }
+  if (to.matched.some((r) => r.meta.guestOnly) && loggedIn) {
+    next("/chatrooms");
+    return;
+  }
+
+  document.title = to.meta.title ? `${to.meta.title} · Leider chats` : "Leider chats";
   next();
 });
 

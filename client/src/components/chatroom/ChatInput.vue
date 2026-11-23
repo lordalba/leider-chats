@@ -1,284 +1,297 @@
 <template>
-  <div v-if="chatroomId" class="chat-input">
-    <div class="input-wrapper">
-      <!-- Hidden File Input -->
-      <input
-        type="file"
-        ref="fileInput"
-        class="hidden-file-input"
-        accept="*/*"
-        @change="handleFileSelection"
-      />
-      <!-- Custom Upload Trigger -->
-      <button v-if="canUserSendMessage" class="upload-trigger" @click="triggerFileInput">
-        <i class="fa-solid fa-paperclip"></i>
-      </button>
-      <button v-if="canUserSendMessage" class="send-location-button" @click="sendLocation">
-        <i class="fa-solid fa-location-dot"></i> Send Location
-      </button>
-      <!-- Message Input -->
-      <input
-        v-if="canUserSendMessage"
-        type="text"
-        placeholder="Type your message..."
-        v-model="messageText"
-        @keyup.enter="sendMessage"
-        v-on:input="startTyping()"
-      />
-      <div
-        v-if="adminPermissionState && !isConnectedUserAdmin"
-        class="only-admins"
-      >
-        Only
-        <notin
-          style="color: chartreuse; font-weight: bolder; font-size: larger"
-        >
-          Admins
-        </notin>
-        can send Messages in this GroupChat
+  <div
+    v-if="chatroomId"
+    class="chat-input"
+    :class="{ dragging }"
+    @dragenter.prevent="dragging = canUserSendMessage"
+    @dragover.prevent
+    @dragleave.self="dragging = false"
+    @drop.prevent="onDrop"
+  >
+    <div v-if="typingUserName" class="typing-indicator">
+      {{ typingUserName }} is typing<span class="dots"><span>.</span><span>.</span><span>.</span></span>
+    </div>
+
+    <p v-if="!canUserSendMessage" class="only-admins">
+      <i class="fa-solid fa-shield-halved"></i> Only <strong>admins</strong> can send messages in this group.
+    </p>
+
+    <template v-else>
+      <!-- Attachment waiting to be sent -->
+      <div v-if="pendingFile" class="attachment">
+        <img v-if="pendingPreviewUrl" :src="pendingPreviewUrl" alt="Preview" class="attachment-thumb" />
+        <span v-else class="attachment-icon"><i class="fa-solid fa-file"></i></span>
+        <span class="attachment-info">
+          <span class="attachment-name">{{ pendingFile.name }}</span>
+          <span class="attachment-size">{{ pendingSize }} · type a caption below (optional)</span>
+        </span>
+        <button class="icon" title="Remove attachment" :disabled="uploading" @click="clearAttachment">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
-    </div>
 
-    <!-- Typing Indicator -->
-    <div v-if="isFriendTyping" class="typing-indicator">
-      {{ typingUserName }} is typing <span class="dot">.</span
-      ><span class="dot">.</span><span class="dot">.</span>
-    </div>
-
-    <!-- File Preview Modal -->
-    <div v-if="showFilePreview" class="modal-overlay">
-      <div class="modal-content">
-        <h3>Preview File</h3>
-
-        <!-- Image Preview -->
-        <div v-if="isImage(mediaFile)" class="file-preview">
-          <img :src="mediaPreviewUrl" alt="Image Preview" />
+      <div ref="composer" class="composer">
+        <div class="tools">
+          <button class="icon" :class="{ active: openPicker === 'emoji' }" title="Emoji" @click="togglePicker('emoji')">
+            <i class="fa-regular fa-face-smile"></i>
+          </button>
+          <button class="icon gif" :class="{ active: openPicker === 'gif' }" title="Your GIFs" @click="togglePicker('gif')">
+            GIF
+          </button>
+          <button class="icon" title="Attach a file" @click="$refs.fileInput.click()">
+            <i class="fa-solid fa-paperclip"></i>
+          </button>
+          <button class="icon" title="Insert a code block" @click="insertCodeBlock">
+            <i class="fa-solid fa-code"></i>
+          </button>
+          <input ref="fileInput" type="file" class="hidden" :accept="acceptedTypes" @change="onFilePicked" />
         </div>
 
-        <!-- Audio Preview -->
-        <div v-else-if="isAudio(mediaFile)" class="file-preview">
-          <audio controls>
-            <source :src="mediaPreviewUrl" type="audio/mpeg" />
-            Your browser does not support the audio element.
-          </audio>
-        </div>
+        <textarea
+          ref="textInput"
+          v-model="messageText"
+          rows="1"
+          :placeholder="pendingFile ? 'Add a caption…' : 'Type a message…  (Shift+Enter for a new line)'"
+          maxlength="5000"
+          @keydown.enter="onEnter"
+          @input="onTyping"
+          @paste="onPaste"
+        ></textarea>
 
-        <!-- File Type Preview -->
-        <div v-else-if="isFile(mediaFile)" class="file-preview">
-          <p><strong>File:</strong> {{ mediaFile.name }}</p>
-          <p><strong>Type:</strong> {{ getFileExtension(mediaFile.name) }}</p>
-          <a :href="mediaPreviewUrl" target="_blank">Open File</a>
-        </div>
+        <button class="send" title="Send" :disabled="!canSend" @click="send">
+          <i :class="uploading ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-paper-plane'"></i>
+        </button>
 
-        <!-- Modal Actions -->
-        <div class="modal-actions">
-          <button @click="cancelFile">Cancel</button>
-          <button @click="confirmFile">Send</button>
-        </div>
+        <EmojiPicker v-if="openPicker === 'emoji'" class="popover" @pick="insertText" />
+        <GifPicker v-if="openPicker === 'gif'" class="popover" @pick="sendGif" />
       </div>
-    </div>
+    </template>
+
+    <div v-if="dragging" class="drop-hint"><i class="fa-solid fa-file-arrow-up"></i> Drop to attach</div>
   </div>
 </template>
 
 <script>
 import { uploadMessageMedia } from "@/api/MediaService";
-import store from "@/store/store";
-import { debounce } from "lodash";
+import { serverMessage } from "@/api/httpClient";
+import { ALLOWED_EXTENSIONS, attachmentProblem, formatFileSize, messageTypeFor } from "@/chat/attachments";
+import { hasUnclosedFence } from "@/chat/messageFormatter";
+import EmojiPicker from "./input/EmojiPicker.vue";
+import GifPicker from "./input/GifPicker.vue";
+
+const TYPING_EMIT_INTERVAL_MS = 1500;
+const TYPING_HIDE_AFTER_MS = 2500;
+const MAX_TEXTAREA_HEIGHT = 180;
 
 export default {
+  name: "ChatInput",
+  components: { EmojiPicker, GifPicker },
   props: {
-    chatroomId: {
-      type: String,
-      required: false,
-    },
-    adminPermissionState: {
-      type: Boolean,
-      required: false,
-    },
-    isConnectedUserAdmin: {
-      type: Boolean,
-      required: false,
-    },
+    chatroomId: { type: String, default: null },
+    adminPermissionState: { type: Boolean, default: false },
+    isConnectedUserAdmin: { type: Boolean, default: false },
   },
   data() {
     return {
       messageText: "",
-      mediaFile: null,
-      mediaUrl: null,
-      mediaPreviewUrl: null,
-      showFilePreview: false,
-      isFriendTyping: false,
+      pendingFile: null,
+      pendingPreviewUrl: "",
+      uploading: false,
+      openPicker: null,
+      dragging: false,
       typingUserName: "",
     };
-  },
-  mounted() {
-    if (this.socket) {
-      this.socket.on("friendTyping", (message) => {
-        if (
-          message.chatroomId == this.chatroomId &&
-          message.userId !== store.state.connectedUser._id
-        ) {
-          this.isFriendTyping = true;
-          this.typingUserName = message.username;
-          this.debounceStopTyping();
-        }
-      });
-    }
-  },
-  methods: {
-    async sendLocation() {
-      if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-
-          const message = {
-            chatRoomId: this.chatroomId,
-            senderId: store.state.connectedUser._id,
-            type: "location",
-            content: String(latitude) + "," + String(longitude),
-            mediaUrl: null,
-          };
-
-          this.socket.emit("sendMessage", message);
-        },
-        (error) => {
-          console.error("Error retrieving location:", error);
-          alert("Unable to retrieve location.");
-        }
-      );
-    },
-    triggerFileInput() {
-      this.$refs.fileInput.click();
-    },
-    handleFileSelection(event) {
-      this.mediaFile = event.target.files[0];
-      if (!this.mediaFile) return;
-
-      // Generate a preview URL for the selected file
-      this.mediaPreviewUrl = URL.createObjectURL(this.mediaFile);
-      this.showFilePreview = true;
-    },
-    cancelFile() {
-      // Clear the file and hide the modal
-      this.mediaFile = null;
-      this.mediaPreviewUrl = null;
-      this.showFilePreview = false;
-    },
-    async confirmFile() {
-      if (!this.mediaFile) return;
-
-      const formData = new FormData();
-      formData.append("media", this.mediaFile);
-
-      try {
-        const response = await uploadMessageMedia(formData);
-        const data = await response.json();
-        this.mediaUrl = data.fileUrl;
-
-        // Automatically send the message with the file
-        this.sendMessage();
-      } catch (error) {
-        console.error("File upload failed:", error);
-      } finally {
-        // Clean up
-        this.cancelFile();
-      }
-    },
-    sendMessage() {
-      if (!this.messageText.trim() && !this.mediaFile) return;
-
-      const message = {
-        chatRoomId: this.chatroomId,
-        senderId: store.state.connectedUser._id,
-        content: this.messageText || null,
-        type: this.mediaFile ? this.getFileType() : "text",
-        fileName: this.mediaFile ? this.mediaFile.name : null,
-        mediaUrl: this.mediaUrl || null,
-      };
-
-      this.socket.emit("sendMessage", message);
-
-      this.messageText = "";
-      this.mediaFile = null;
-      this.mediaUrl = null;
-    },
-    getFileType() {
-      if (this.isAudio(this.mediaFile)) return "voice";
-      if (this.isImage(this.mediaFile)) return "image";
-      if (this.isFile(this.mediaFile)) return "file";
-      return "text";
-    },
-    isImage(file) {
-      return file && file.type.startsWith("image");
-    },
-    isAudio(file) {
-      return file && file.type.startsWith("audio");
-    },
-    isFile(file) {
-      // Check for common document MIME types
-      const fileMimeTypes = [
-        "application/pdf", // PDF files
-        "application/msword", // Word .doc files
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // Word .docx files
-        "application/vnd.ms-excel", // Excel .xls files
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // Excel .xlsx files
-      ];
-      return file && fileMimeTypes.includes(file.type);
-    },
-    getFileExtension(fileName) {
-      const parts = fileName.split(".");
-      return parts.length > 1
-        ? parts[parts.length - 1].toUpperCase()
-        : "Unknown";
-    },
-    startTyping() {
-      this.socket.emit("typing", {
-        chatroomId: this.chatroomId,
-        userId: store.state.connectedUser._id,
-        username: store.state.connectedUser.username,
-      });
-    },
-    debounceStopTyping: debounce(function () {
-      this.isFriendTyping = false;
-    }, 500),
   },
   computed: {
     socket() {
       return this.$store.getters["socket/socket"];
     },
+    connectedUser() {
+      return this.$store.state.connectedUser;
+    },
     canUserSendMessage() {
-      return (
-        !this.adminPermissionState ||
-        (this.adminPermissionState && this.isConnectedUserAdmin)
-      );
+      return !this.adminPermissionState || this.isConnectedUserAdmin;
+    },
+    canSend() {
+      return !this.uploading && (!!this.messageText.trim() || !!this.pendingFile);
+    },
+    /** Limits the file dialog to the types we can send. */
+    acceptedTypes() {
+      return Array.from(ALLOWED_EXTENSIONS, (extension) => `.${extension}`).join(",");
+    },
+    pendingSize() {
+      return this.pendingFile ? formatFileSize(this.pendingFile.size) : "";
     },
   },
   watch: {
-    chatroomId: {
-      immediate: true,
-      handler(newVal) {
-        console.log("new val for chatroomId: " + newVal);
-      },
-      deep: true,
+    chatroomId() {
+      // New chat: start fresh.
+      this.typingUserName = "";
+      this.messageText = "";
+      this.openPicker = null;
+      this.clearAttachment();
     },
-    adminPermissionState: {
-      immediate: true,
-      handler(newVal) {
-        console.log("new val for isConnectedUserAdmin: " + newVal);
-      },
-      deep: true,
+    messageText() {
+      this.$nextTick(this.resizeTextarea);
     },
-    isConnectedUserAdmin: {
-      immediate: true,
-      handler(newVal) {
-        console.log("new val for isConnectedUserAdmin: " + newVal);
-      },
-      deep: true,
+  },
+  mounted() {
+    if (this.socket) this.socket.on("friendTyping", this.onFriendTyping);
+    this.onDocumentClick = (event) => {
+      if (this.openPicker && this.$refs.composer && !this.$refs.composer.contains(event.target)) {
+        this.openPicker = null;
+      }
+    };
+    document.addEventListener("click", this.onDocumentClick);
+  },
+  beforeDestroy() {
+    if (this.socket) this.socket.off("friendTyping", this.onFriendTyping);
+    document.removeEventListener("click", this.onDocumentClick);
+    clearTimeout(this.typingTimer);
+    this.clearAttachment();
+  },
+  methods: {
+    // ---- sending -------------------------------------------------------
+    onEnter(event) {
+      // Shift+Enter, or Enter inside an open ``` block, adds a line instead of sending.
+      if (event.shiftKey || hasUnclosedFence(this.messageText)) return;
+      event.preventDefault();
+      this.send();
+    },
+    async send() {
+      if (!this.canSend) return;
+      const text = this.messageText.trim();
+      if (this.pendingFile) {
+        await this.sendAttachment(text);
+      } else {
+        this.emitMessage({ type: "text", content: text });
+        this.messageText = "";
+      }
+      this.openPicker = null;
+    },
+    async sendAttachment(caption) {
+      this.uploading = true;
+      try {
+        const file = this.pendingFile;
+        const { fileUrl } = await uploadMessageMedia(file);
+        this.emitMessage({
+          type: messageTypeFor(file),
+          content: caption || null,
+          fileName: file.name,
+          mediaUrl: fileUrl,
+        });
+        this.messageText = "";
+        this.clearAttachment();
+      } catch (error) {
+        this.$toast.error(serverMessage(error, "Couldn't upload the file."));
+      } finally {
+        this.uploading = false;
+      }
+    },
+    sendGif(url) {
+      this.emitMessage({ type: "image", content: null, fileName: "GIF", mediaUrl: url });
+      this.openPicker = null;
+    },
+    emitMessage(message) {
+      this.socket.emit("sendMessage", {
+        chatRoomId: this.chatroomId,
+        senderId: this.connectedUser._id,
+        fileName: null,
+        mediaUrl: null,
+        ...message,
+      });
+    },
+
+    // ---- attachments ---------------------------------------------------
+    onFilePicked(event) {
+      const file = event.target.files[0];
+      // Reset so picking the same file again still triggers a change.
+      event.target.value = "";
+      if (file) this.attach(file);
+    },
+    onDrop(event) {
+      this.dragging = false;
+      if (!this.canUserSendMessage) return;
+      const file = event.dataTransfer && event.dataTransfer.files[0];
+      if (file) this.attach(file);
+    },
+    onPaste(event) {
+      const file = event.clipboardData && event.clipboardData.files[0];
+      if (!file) return;
+      event.preventDefault();
+      this.attach(file);
+    },
+    attach(file) {
+      const problem = attachmentProblem(file);
+      if (problem) {
+        this.$toast.error(problem);
+        return;
+      }
+      this.clearAttachment();
+      this.pendingFile = file;
+      if (messageTypeFor(file) === "image") this.pendingPreviewUrl = URL.createObjectURL(file);
+      this.$nextTick(() => this.$refs.textInput && this.$refs.textInput.focus());
+    },
+    clearAttachment() {
+      if (this.pendingPreviewUrl) URL.revokeObjectURL(this.pendingPreviewUrl);
+      this.pendingPreviewUrl = "";
+      this.pendingFile = null;
+    },
+
+    // ---- composing -----------------------------------------------------
+    togglePicker(name) {
+      this.openPicker = this.openPicker === name ? null : name;
+    },
+    insertText(text) {
+      const input = this.$refs.textInput;
+      const start = input ? input.selectionStart : this.messageText.length;
+      const end = input ? input.selectionEnd : this.messageText.length;
+      this.messageText = this.messageText.slice(0, start) + text + this.messageText.slice(end);
+      this.$nextTick(() => {
+        if (!input) return;
+        input.focus();
+        input.selectionStart = input.selectionEnd = start + text.length;
+      });
+    },
+    insertCodeBlock() {
+      const input = this.$refs.textInput;
+      const start = input ? input.selectionStart : this.messageText.length;
+      const end = input ? input.selectionEnd : this.messageText.length;
+      const selected = this.messageText.slice(start, end);
+      const before = start > 0 && !this.messageText.slice(0, start).endsWith("\n") ? "\n" : "";
+      const block = `${before}\`\`\`\n${selected}\n\`\`\``;
+      this.messageText = this.messageText.slice(0, start) + block + this.messageText.slice(end);
+      // Put the cursor inside the block.
+      const cursor = start + before.length + 4 + selected.length;
+      this.$nextTick(() => {
+        if (!input) return;
+        input.focus();
+        input.selectionStart = input.selectionEnd = cursor;
+      });
+    },
+    resizeTextarea() {
+      const input = this.$refs.textInput;
+      if (!input) return;
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+    },
+
+    // ---- typing indicator ---------------------------------------------
+    onTyping() {
+      const now = Date.now();
+      if (now - (this.lastTypingEmit || 0) < TYPING_EMIT_INTERVAL_MS) return;
+      this.lastTypingEmit = now;
+      this.socket.emit("typing", {
+        chatroomId: this.chatroomId,
+        userId: this.connectedUser._id,
+        username: this.connectedUser.username,
+      });
+    },
+    onFriendTyping(message) {
+      if (message.chatroomId !== this.chatroomId || message.userId === this.connectedUser._id) return;
+      this.typingUserName = message.username;
+      clearTimeout(this.typingTimer);
+      this.typingTimer = setTimeout(() => (this.typingUserName = ""), TYPING_HIDE_AFTER_MS);
     },
   },
 };
@@ -286,183 +299,168 @@ export default {
 
 <style scoped>
 .chat-input {
-  padding: 10px;
-  border-top: 1px solid #ddd;
+  position: relative;
+  padding: 8px 12px 10px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
 }
-
-.input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.chat-input.dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
 }
-
-input[type="text"] {
-  flex: 1;
-  padding: 10px;
-  font-size: 16px;
-  border-radius: 20px;
-  border: 1px solid #ddd;
-}
-
-.file-upload-label {
-  cursor: pointer;
-}
-
-.file-upload-input {
+.hidden {
   display: none;
 }
-
 .typing-indicator {
-  display: flex;
-  align-items: center;
+  font-size: 0.8em;
+  color: var(--text-muted);
   font-style: italic;
-  font-size: 0.9em;
-  color: #666;
+  margin: 0 0 4px 6px;
 }
-
-.dot {
-  animation: blink 1.2s infinite steps(1, end);
-  font-weight: bold;
+.dots span {
+  animation: blink 1.4s infinite both;
 }
-
-.dot:nth-child(1) {
-  animation-delay: 0s;
+.dots span:nth-child(2) {
+  animation-delay: 0.2s;
 }
-.dot:nth-child(2) {
-  animation-delay: 0.3s;
+.dots span:nth-child(3) {
+  animation-delay: 0.4s;
 }
-.dot:nth-child(3) {
-  animation-delay: 0.6s;
-}
-
 @keyframes blink {
   0%,
-  20% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
+  80%,
   100% {
     opacity: 0;
   }
+  40% {
+    opacity: 1;
+  }
 }
-
-.file-input-container {
+.only-admins {
+  margin: 6px 0;
+  text-align: center;
+  color: var(--text-muted);
+}
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.attachment-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.attachment-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: rgba(0, 123, 255, 0.15);
+  color: #007bff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.attachment-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.attachment-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-size {
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+.composer {
   position: relative;
-  display: inline-block;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
 }
-
-/* Hidden File Input */
-.hidden-file-input {
-  display: none; /* Hide the default file input */
+.tools {
+  display: flex;
+  gap: 2px;
 }
-
-/* Custom Upload Trigger */
-.upload-trigger {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background-color: #13a749; /* WhatsApp green */
+.icon {
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
   cursor: pointer;
-  transition: transform 0.3s ease;
 }
-
-/* Hover Effect */
-.upload-trigger:hover {
-  transform: scale(1.1);
+.icon:hover,
+.icon.active {
+  background: var(--hover);
+  color: var(--text);
 }
-
-/* Selected File Preview */
-.file-preview {
-  margin-top: 10px;
-  padding: 10px;
-  background-color: #f1f1f1;
-  border-radius: 5px;
-  font-size: 14px;
-  color: #555;
-  max-width: 100%;
-  word-wrap: break-word;
+.icon.gif {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
-
-/* Modal Styling */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  max-height: 180px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  line-height: 1.35;
+  resize: none;
+  outline: none;
 }
-
-.modal-content {
-  background: #fff;
-  padding: 20px;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 400px;
-  text-align: center;
+textarea:focus {
+  border-color: var(--accent);
 }
-
-.file-preview img {
-  max-width: 100%;
-  border-radius: 10px;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
-}
-
-.modal-actions button {
-  padding: 10px 20px;
+.send {
+  width: 40px;
+  height: 40px;
   border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.modal-actions button:first-child {
-  background-color: #ddd;
-}
-
-.modal-actions button:last-child {
-  background-color: #13a749;
+  border-radius: 50%;
+  background: var(--accent);
   color: #fff;
-}
-
-.send-location-button {
-  background-color: #ff5722;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  padding: 10px;
   cursor: pointer;
-  font-size: 14px;
+  flex-shrink: 0;
+}
+.send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.popover {
+  position: absolute;
+  bottom: 48px;
+  left: 0;
+  z-index: 50;
+}
+.drop-hint {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-}
-
-.send-location-button i {
-  margin-right: 5px;
-}
-
-.only-admins {
-  margin-left: 35%;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(69, 129, 92, 0.12);
+  color: var(--accent);
+  font-weight: 600;
+  pointer-events: none;
 }
 </style>

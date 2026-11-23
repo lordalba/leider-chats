@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Workspace from "../../models/workspaces/Workspace";
 import Task from "../../models/workspaces/Task";
 import Document from "../../models/workspaces/Document";
-import Whiteboard from "../../models/workspaces/whiteboard";
+import Whiteboard from "../../models/workspaces/Whiteboard";
 import ChatRoom from "../../models/chatrooms/ChatRoom";
 import Message from "../../models/chatrooms/Message";
 import User from "../../models/User";
@@ -118,13 +118,14 @@ type PopulatedParticipant = {
   profilePictureUrl?: string;
 };
 
+/** Group chats use their name; one-on-one chats are named after the other person (like in the app). */
 const chatDisplayName = (
-  chat: { name?: string; participants: PopulatedParticipant[] },
+  chat: { name?: string; isGroupChat?: boolean; participants: PopulatedParticipant[] },
   userId: string
 ): string => {
-  if (chat.name) return chat.name;
   const others = chat.participants.filter((p) => String(p._id) !== String(userId));
-  return others.map((p) => p.username).join(", ") || "Chat";
+  if (!chat.isGroupChat && others.length) return others.map((p) => p.username).join(", ");
+  return chat.name || others.map((p) => p.username).join(", ") || "Chat";
 };
 
 export const listWorkspaces = async (
@@ -140,14 +141,14 @@ export const listWorkspaces = async (
   }
 
   const chats = await ChatRoom.find(chatFilter)
-    .select("name participants")
+    .select("name participants isGroupChat")
     .populate("participants", "username")
     .lean();
   const nameByChat = new Map<string, string>();
   chats.forEach((chat) => {
     nameByChat.set(
       String(chat._id),
-      chatDisplayName(chat as unknown as { name?: string; participants: PopulatedParticipant[] }, userId)
+      chatDisplayName(chat as unknown as { name?: string; isGroupChat?: boolean; participants: PopulatedParticipant[] }, userId)
     );
   });
 
@@ -180,7 +181,7 @@ export const getWorkspaceDetail = async (userId: string, workspaceId: string) =>
     workspace,
     chat: {
       _id: chat._id,
-      name: chatDisplayName({ name: chat.name, participants }, userId),
+      name: chatDisplayName({ name: chat.name, isGroupChat: chat.isGroupChat, participants }, userId),
       admins: (chat.admins || []).map(String),
       participants: participants.map((p) => ({
         _id: p._id,

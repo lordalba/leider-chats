@@ -3,6 +3,13 @@
     <EmptyState v-if="!detail" />
     <template v-else>
       <div class="workspace-header">
+        <router-link
+          :to="{ path: '/chatrooms', query: { chat: String(detail.chat._id) } }"
+          class="back-to-chat"
+          :title="`Back to ${detail.chat.name}`"
+        >
+          <i class="fa-solid fa-arrow-left"></i> Back to chat
+        </router-link>
         <div class="heading">
           <h2>{{ detail.workspace.name }}</h2>
           <p class="subtitle">
@@ -94,8 +101,8 @@ import ItemList from "@/components/workspaces/ItemList.vue";
 import TaskBoard from "@/components/workspaces/tasks/TaskBoard.vue";
 import DocumentEditor from "@/components/workspaces/documents/DocumentEditor.vue";
 import WhiteboardCanvas from "@/components/workspaces/whiteboard/WhiteboardCanvas.vue";
-import ConfirmationModal from "@/components/ConfirmationModal.vue";
-import { emitWithAck, errorMessage } from "@/workspaces/socketCall";
+import ConfirmationModal from "@/components/common/ConfirmationModal.vue";
+import { emitWithAck, errorMessage } from "@/socket/socketCall";
 
 export default {
   name: "WorkspaceMainContent",
@@ -251,12 +258,25 @@ export default {
   flex: 1;
   min-width: 0;
 }
+.back-to-chat {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid #45815c;
+  border-radius: 6px;
+  color: #45815c;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.back-to-chat:hover {
+  background: #45815c;
+  color: #fff;
+}
 .heading h2 {
   margin: 0;
 }
 .subtitle {
   margin: 2px 0 0;
-  color: #666;
+  color: var(--text-muted);
   font-size: 0.9em;
 }
 .split {
@@ -266,7 +286,7 @@ export default {
 }
 .placeholder {
   flex: 1;
-  color: gray;
+  color: var(--text-muted);
   text-align: center;
   padding: 60px 0;
 }
