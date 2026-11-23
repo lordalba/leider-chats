@@ -17,11 +17,21 @@
       <div class="input-group">
         <i class="fas fa-lock"></i>
         <input
-          type="password"
+          :type="showPassword ? 'text' : 'password'"
           placeholder="Enter your password"
           v-model="password"
+          class="password-input"
           required
         />
+        <button
+          type="button"
+          class="show-password"
+          :title="showPassword ? 'Hide password' : 'Show password'"
+          :aria-label="showPassword ? 'Hide password' : 'Show password'"
+          @click="showPassword = !showPassword"
+        >
+          <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+        </button>
       </div>
 
       <button type="submit">Login In</button>
@@ -47,6 +57,7 @@ export default {
     return {
       email: "",
       password: "",
+      showPassword: false,
     };
   },
   methods: {
@@ -129,6 +140,33 @@ input {
   border-radius: 5px;
   font-size: 16px;
   outline: none;
+}
+.password-input {
+  padding-right: 40px;
+}
+/* Hide Edge's built-in reveal button; we have our own. */
+.password-input::-ms-reveal,
+.password-input::-ms-clear {
+  display: none;
+}
+.input-group .show-password {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  padding: 4px 6px;
+  background: transparent;
+  color: #888;
+}
+.input-group .show-password:hover {
+  background: transparent;
+  color: #444;
+}
+.input-group .show-password i {
+  position: static;
+  transform: none;
+  color: inherit;
 }
 button {
   width: 100%;

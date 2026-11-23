@@ -48,14 +48,20 @@
           />
           <div class="input-group password">
             <input
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               placeholder="Password"
               v-model="password"
               class="input-field"
               required
             />
-            <button type="button" class="show-password">
-              <i class="fas fa-eye"></i>
+            <button
+              type="button"
+              class="show-password"
+              :title="showPassword ? 'Hide password' : 'Show password'"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              @click="showPassword = !showPassword"
+            >
+              <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
             </button>
           </div>
 
@@ -80,6 +86,7 @@ export default {
       username: "",
       email: "",
       password: "",
+      showPassword: false,
       age: "",
       profession: "",
       location: "",
@@ -201,6 +208,12 @@ h1 .highlight {
   border: 1px solid #ddd;
   background-color: #fafafa;
   color: #333;
+}
+
+/* Hide Edge's built-in reveal button; we have our own. */
+.password input::-ms-reveal,
+.password input::-ms-clear {
+  display: none;
 }
 
 .password .show-password {
