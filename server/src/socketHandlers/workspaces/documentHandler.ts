@@ -72,11 +72,15 @@ const documentHandler = (io: Server, socket: Socket) => {
       const id = String(docId);
       socket.join(docRoom(id));
       const update = await yDocManager.open(id, socket.id);
-      // A delete may have landed while the doc was loading.
-      if (!(await documentExists(id))) {
+      // Re-check after joining: an eviction or a delete may have landed while
+      // the doc was loading (eviction's leave would have run before our join).
+      try {
+        await assertDocumentMember(userId, id);
+      } catch (error) {
         socket.leave(docRoom(id));
-        yDocManager.delete(id);
-        throw new WorkspaceError("not_found");
+        if (await documentExists(id)) await yDocManager.close(id, socket.id);
+        else yDocManager.delete(id);
+        throw error;
       }
       return { update };
     })

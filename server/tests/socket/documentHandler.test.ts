@@ -10,6 +10,9 @@ import { WorkspacePresenceService } from "../../src/services/workspaces/Workspac
 import { yDocManager } from "../../src/services/workspaces/YDocManager";
 import Workspace from "../../src/models/workspaces/Workspace";
 import DocumentModel from "../../src/models/workspaces/Document";
+import ChatRoom from "../../src/models/chatrooms/ChatRoom";
+import mongoose from "mongoose";
+import { evictUserFromChatWorkspaces } from "../../src/services/workspaces/WorkspaceService";
 
 let server: Awaited<ReturnType<typeof startTestServer>>;
 let clients: ClientSocket[] = [];
@@ -260,5 +263,58 @@ describe("documentHandler", () => {
     expect((await emit(A, "workspace:delete", wsId)).ok).toBe(true);
     expect(yDocManager.isLoaded(docId)).toBe(false);
     expect(await DocumentModel.findById(docId)).toBeNull();
+  });
+});
+
+describe("documentHandler — removed member (Review Focus 1)", () => {
+  async function setupWithChat() {
+    const alice = await makeUser("alice");
+    const bob = await makeUser("bob");
+    const chat = await makeChat([alice, bob], [alice]);
+    const ws = await Workspace.create({ name: "W", chatRoomId: chat._id, createdBy: alice._id });
+    const A = await connect(String(alice._id));
+    const B = await connect(String(bob._id));
+    const created = await emit(A, "doc:create", String(ws._id), "Notes");
+    return { A, B, chatId: String(chat._id), bobId: String(bob._id), docId: String(created.data._id) };
+  }
+
+  async function removeFromChat(chatId: string, userId: string) {
+    await ChatRoom.updateOne({ _id: chatId }, { $pull: { participants: new mongoose.Types.ObjectId(userId) } });
+    await evictUserFromChatWorkspaces(server.io, chatId, userId);
+  }
+
+  test("after removal: doc:update → forbidden, no more doc:update/awareness, doc:open → forbidden", async () => {
+    const { A, B, chatId, bobId, docId } = await setupWithChat();
+    const a = await openDoc(A, docId);
+    await openDoc(B, docId);
+    await removeFromChat(chatId, bobId);
+
+    const noUpdate = expectNoEvent(B, "doc:update");
+    const noAwareness = expectNoEvent(B, "doc:awareness");
+    a.getText("quill").insert(0, "secret");
+    A.emit("doc:awareness", docId, new Uint8Array([1, 2]));
+    await Promise.all([noUpdate, noAwareness]);
+
+    const y = new Y.Doc();
+    y.getText("quill").insert(0, "x");
+    expect(await emit(B, "doc:update", docId, Y.encodeStateAsUpdate(y))).toEqual({ ok: false, error: "forbidden" });
+    expect(await emit(B, "doc:open", docId)).toEqual({ ok: false, error: "forbidden" });
+  });
+
+  test("removed while doc:open is loading → forbidden and the socket is not left in the doc room", async () => {
+    const { A, B, chatId, bobId, docId } = await setupWithChat();
+    const original = yDocManager.open.bind(yDocManager);
+    const spy = jest.spyOn(yDocManager, "open").mockImplementationOnce(async (id, socketId) => {
+      await removeFromChat(chatId, bobId);
+      return original(id, socketId);
+    });
+    expect(await emit(B, "doc:open", docId)).toEqual({ ok: false, error: "forbidden" });
+    spy.mockRestore();
+
+    const a = await openDoc(A, docId);
+    const none = expectNoEvent(B, "doc:update");
+    a.getText("quill").insert(0, "after removal");
+    await none;
+    expect((await emit(B, "doc:update", docId, new Uint8Array([0, 0]))).ok).toBe(false);
   });
 });

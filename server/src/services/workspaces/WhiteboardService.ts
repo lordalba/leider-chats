@@ -15,6 +15,14 @@ const toMeta = (wb: IWhiteboard): WhiteboardMeta => ({
   createdBy: String(wb.createdBy),
 });
 
+// 17419: "Resulting document after update is larger than 16777216";
+// 10334: BSONObjectTooLarge.
+function isDocumentTooLarge(error: unknown): boolean {
+  const e = error as { code?: number; message?: string } | null;
+  if (!e) return false;
+  return e.code === 17419 || e.code === 10334 || /larger than \d+|too large/i.test(e.message || "");
+}
+
 async function loadWhiteboardForMember(userId: string, whiteboardId: string, withStrokes = false) {
   const query = Whiteboard.findById(toObjectId(whiteboardId));
   if (withStrokes) query.select("+strokes");
@@ -83,14 +91,21 @@ export async function addStroke(
 ): Promise<IStroke> {
   const { wb } = await loadWhiteboardForMember(userId, whiteboardId);
   const stroke = validateStroke(input, userId);
-  const result = await Whiteboard.updateOne(
-    {
-      _id: wb._id,
-      [`strokes.${MAX_STROKES_PER_BOARD - 1}`]: { $exists: false },
-      "strokes.id": { $ne: stroke.id },
-    },
-    { $push: { strokes: stroke } }
-  );
+  let result;
+  try {
+    result = await Whiteboard.updateOne(
+      {
+        _id: wb._id,
+        [`strokes.${MAX_STROKES_PER_BOARD - 1}`]: { $exists: false },
+        "strokes.id": { $ne: stroke.id },
+      },
+      { $push: { strokes: stroke } }
+    );
+  } catch (error) {
+    // Long strokes can fill Mongo's 16 MiB document before the stroke cap.
+    if (isDocumentTooLarge(error)) throw new WorkspaceError("board_full");
+    throw error;
+  }
   if (result.matchedCount === 1) return stroke;
 
   const current = await Whiteboard.findById(wb._id).select("+strokes").lean();

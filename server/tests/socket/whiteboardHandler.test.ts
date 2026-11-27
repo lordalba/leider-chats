@@ -8,6 +8,8 @@ import connectionHandler from "../../src/socketHandlers/connectionHandler";
 import { WorkspacePresenceService } from "../../src/services/workspaces/WorkspacePresenceService";
 import Workspace from "../../src/models/workspaces/Workspace";
 import Whiteboard from "../../src/models/workspaces/whiteboard";
+import ChatRoom from "../../src/models/chatrooms/ChatRoom";
+import { evictUserFromChatWorkspaces } from "../../src/services/workspaces/WorkspaceService";
 
 let server: Awaited<ReturnType<typeof startTestServer>>;
 let clients: ClientSocket[] = [];
@@ -100,7 +102,7 @@ async function setup(creator: "alice" | "bob" = "alice") {
   expect(created.ok).toBe(true);
   const wbId = String(created.data._id);
   for (const s of [A, B, D]) expect((await emit(s, "wb:open", wbId)).ok).toBe(true);
-  return { wsId, wbId, A, B, C, D, alice, bob };
+  return { wsId, wbId, A, B, C, D, alice, bob, dave, chatId: String(chat._id) };
 }
 
 describe("whiteboardHandler", () => {
@@ -223,4 +225,36 @@ describe("whiteboardHandler", () => {
     C.emit("wb:drawing", wbId, { strokeId: "x", color: "#ff0000", width: 5, points: [0, 0] });
     await none;
   });
+
+  test("removed member: wb:stroke/undo → forbidden, no wb:drawing/wb:stroke, wb:open → forbidden (Review Focus 1)", async () => {
+    const { wbId, A, D, dave, chatId } = await setup();
+    expect((await emit(D, "wb:stroke", wbId, stroke("mine"))).ok).toBe(true);
+    await ChatRoom.updateOne({ _id: chatId }, { $pull: { participants: dave._id as any } });
+    await evictUserFromChatWorkspaces(server.io, chatId, String(dave._id));
+
+    const noDrawing = expectNoEvent(D, "wb:drawing");
+    const noStroke = expectNoEvent(D, "wb:stroke");
+    A.emit("wb:drawing", wbId, { strokeId: "live", color: "#ff0000", width: 5, points: [0, 0] });
+    expect((await emit(A, "wb:stroke", wbId, stroke("a1"))).ok).toBe(true);
+    await Promise.all([noDrawing, noStroke]);
+
+    expect(await emit(D, "wb:stroke", wbId, stroke("d2"))).toEqual({ ok: false, error: "forbidden" });
+    expect(await emit(D, "wb:undo", wbId, "mine")).toEqual({ ok: false, error: "forbidden" });
+    expect(await emit(D, "wb:open", wbId)).toEqual({ ok: false, error: "forbidden" });
+  });
+
+  test("a board whose stored strokes would exceed Mongo's 16 MB document limit → board_full", async () => {
+    const { wbId, A, alice } = await setup();
+    // ~55 KB per max-length stroke in BSON; 304 of them ≈ 16.72 MB.
+    const big = Array.from({ length: 4000 }, (_, i) => (i % 97) / 97 + 0.0001);
+    const seeded = Array.from({ length: 304 }, (_, i) => ({
+      id: `big-${i}`, userId: String(alice._id), color: "#000000", width: 1, points: big, createdAt: new Date(),
+    }));
+    await Whiteboard.collection.updateOne({ _id: (await Whiteboard.findById(wbId))!._id as any }, { $set: { strokes: seeded } });
+    const [m] = await Whiteboard.aggregate([{ $project: { size: { $bsonSize: "$$ROOT" } } }]);
+    // One more max-length stroke (~55 KB) crosses 16 MiB.
+    expect(m.size + 55000).toBeGreaterThan(16 * 1024 * 1024);
+    const res = await emit(A, "wb:stroke", wbId, stroke("overflow", { points: big }));
+    expect(res).toEqual({ ok: false, error: "board_full" });
+  }, 60000);
 });
