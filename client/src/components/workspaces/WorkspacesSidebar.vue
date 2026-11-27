@@ -62,7 +62,6 @@ export default {
   min-width: 260px;
   background: #f5f5f5;
   padding: 20px;
-  height: 100vh;
   overflow-y: auto;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
 }

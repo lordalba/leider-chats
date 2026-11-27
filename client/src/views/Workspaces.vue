@@ -1,5 +1,5 @@
 <template>
-  <div class="workspaces-page">
+  <div class="workspaces-page ws-scope">
     <Sidebar
       :workspaces="workspaces"
       :selectedWorkspaceId="workspaceId"
@@ -260,8 +260,10 @@ export default {
 
 <style scoped>
 .workspaces-page {
-  display: flex; /* Flexbox layout for sidebar and content */
-  height: 100vh; /* Full viewport height */
-  overflow: hidden; /* Prevent scrolling */
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0; /* fills .main-content (App.vue fullHeight); panes scroll */
+  overflow: hidden;
 }
 </style>

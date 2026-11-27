@@ -1,10 +1,10 @@
 <template>
-  <div id="app" class="app-container">
+  <div id="app" class="app-container" :class="{ 'app--full': fullHeight }">
     <Header />
     <div class="main-content">
       <RouterView />
     </div>
-    <Footer />
+    <Footer v-if="!fullHeight" />
   </div>
 </template>
 
@@ -19,6 +19,11 @@ export default {
   components: {
     Header,
     Footer
+  },
+  computed: {
+    fullHeight() {
+      return Boolean(this.$route.meta && this.$route.meta.fullHeight);
+    },
   },
 };
 </script>
@@ -68,5 +73,17 @@ export default {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+}
+
+/* Routes with meta.fullHeight: the page fills the space under the header and
+   never scrolls itself; its own panes do. */
+#app.app--full {
+  flex-direction: column;
+}
+#app.app--full .main-content {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
 }
 </style>

@@ -1,6 +1,7 @@
 <template>
   <b-modal
     :visible="visible"
+    content-class="ws-scope"
     :title="editing ? 'Edit task' : 'New task'"
     @show="resetForm"
     @hidden="onHidden"

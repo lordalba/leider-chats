@@ -1,6 +1,7 @@
 import Home from "./views/Home.vue";
 import Login from "./views/Login.vue";
 import VueRouter from "vue-router";
+import { pageTitle } from "./pageTitle";
 import Register from "./views/Register.vue";
 import FriendsPage from "./views/FriendsPage.vue";
 import Profile from "./views/Profile.vue";
@@ -82,14 +83,17 @@ const router = new VueRouter({
       name: "workspaces",
       component: Workspaces,
       meta: {
-        title: "chat with your friends",
+        title: "Workspaces",
+        // App-style page: fills the viewport under the header, no footer,
+        // panes scroll on their own (see App.vue).
+        fullHeight: true,
       },
     },
   ],
 });
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title || "Letter for every soldier"; // Set the document title
+  document.title = pageTitle(to.meta);
   next();
 });
 

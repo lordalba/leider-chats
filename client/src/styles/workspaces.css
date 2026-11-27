@@ -1,0 +1,76 @@
+/*
+ * Workspace design tokens. Workspace components use these variables instead
+ * of hex literals (exceptions: the whiteboard palette and cursor colors).
+ * Spec: docs/superpowers/specs/2026-11-27-workspaces-ux-audit.md
+ */
+:root {
+  --ws-accent: #45815c;
+  --ws-accent-strong: #2f5e43;
+  --ws-accent-soft: #e6f0ea;
+  --ws-danger: #c94a44;
+  --ws-warn: #b7791f;
+  --ws-warn-soft: #fdf3e1;
+  --ws-surface: #fff;
+  --ws-surface-muted: #f4f5f7;
+  --ws-border: #e3e5e8;
+  --ws-text: #1f2328;
+  --ws-text-muted: #6b7280;
+  --ws-radius-sm: 6px;
+  --ws-radius: 8px;
+  --ws-space-1: 4px;
+  --ws-space-2: 8px;
+  --ws-space-3: 12px;
+  --ws-space-4: 16px;
+  --ws-focus: 0 0 0 3px rgba(69, 129, 92, 0.35);
+  --ws-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/*
+ * .ws-scope: put on the root of a workspace screen. Maps Bootstrap's blue
+ * primary (and form controls) onto the accent, and gives every focusable
+ * element a visible keyboard focus ring.
+ * Modals render outside the page (in <body>), so they get the scope too via
+ * their content class: add `content-class="ws-scope"` on b-modal.
+ */
+.ws-scope {
+  color: var(--ws-text);
+}
+.ws-scope .btn-primary,
+.ws-scope .btn-primary:disabled,
+.ws-scope .btn-primary.disabled {
+  background-color: var(--ws-accent);
+  border-color: var(--ws-accent);
+  color: #fff;
+}
+.ws-scope .btn-primary:not(:disabled):hover,
+.ws-scope .btn-primary:not(:disabled):active {
+  background-color: var(--ws-accent-strong);
+  border-color: var(--ws-accent-strong);
+}
+.ws-scope .btn-outline-primary {
+  color: var(--ws-accent-strong);
+  border-color: var(--ws-accent);
+}
+.ws-scope .btn-outline-primary:not(:disabled):hover {
+  background-color: var(--ws-accent-soft);
+  color: var(--ws-accent-strong);
+}
+.ws-scope .btn-link {
+  color: var(--ws-accent-strong);
+}
+.ws-scope .form-control:focus,
+.ws-scope .custom-select:focus,
+.ws-scope .form-select:focus {
+  border-color: var(--ws-accent);
+  box-shadow: var(--ws-focus);
+}
+.ws-scope .custom-control-input:checked ~ .custom-control-label::before,
+.ws-scope .form-check-input:checked {
+  background-color: var(--ws-accent);
+  border-color: var(--ws-accent);
+}
+.ws-scope :focus-visible {
+  outline: none;
+  box-shadow: var(--ws-focus);
+  border-radius: var(--ws-radius-sm);
+}

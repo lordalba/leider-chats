@@ -236,7 +236,7 @@ export default {
 .workspace-main {
   flex: 1;
   padding: 20px;
-  height: 100vh;
+  min-width: 0;
   overflow-y: auto;
 }
 .workspace-header {

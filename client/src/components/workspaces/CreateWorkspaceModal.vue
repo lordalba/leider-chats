@@ -1,6 +1,7 @@
 <template>
   <b-modal
     :visible="visible"
+    content-class="ws-scope"
     title="New workspace"
     ok-title="Create"
     :ok-disabled="!trimmedName || submitting"
