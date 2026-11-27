@@ -53,7 +53,7 @@ const scenes = [
   }],
   ["06-whiteboard", async (b) => {
     await b.nav(ws(), 3000);
-    await b.click("[role=tab], .tabs button", "Whiteboard", 1000);
+    await b.click("[role=tab], .tabs button", "Whiteboards", 1000);
     await b.click(".item-row", "Route sketch", 2500);
   }],
   ["08-confirm-delete", async (b) => {

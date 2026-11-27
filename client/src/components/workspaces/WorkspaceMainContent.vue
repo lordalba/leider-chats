@@ -13,9 +13,9 @@
         </div>
         <PresenceBar :members="members" :meId="meId" :detail="detail" />
       </div>
-      <Tabs :tabs="tabs" @change-tab="setActiveTab" />
+      <Tabs :tabs="tabs" :value="activeTab" @input="setActiveTab" />
       <TaskBoard
-        v-if="activeTab === 'Tasks'"
+        v-if="activeTab === 'tasks'"
         :tasks="detail.tasks || []"
         :participants="(detail.chat && detail.chat.participants) || []"
         :members="members"
@@ -23,13 +23,13 @@
         @focus="(focus) => $emit('focus', focus)"
         @item-event="(event) => $emit('item-event', event)"
       />
-      <div v-else-if="activeTab === 'Documents'" class="items-tab">
+      <div v-else-if="activeTab === 'documents'" class="items-tab">
         <ItemList
           kind="document"
           :items="detail.documents || []"
           :members="members"
           :selectedId="selectedDocId"
-          @select="selectDocument"
+          @select="openItem"
           @create="(title) => createItem('document', title)"
           @rename="(id, title) => renameItem('document', id, title)"
           @delete="(id) => deleteItem('document', id)"
@@ -39,19 +39,19 @@
           :key="selectedDocId"
           :docId="selectedDocId"
           :connectedUser="connectedUser"
-          @closed="selectDocument(null)"
+          @closed="closeItem"
         />
         <div v-else class="tab-placeholder items-placeholder">
           Pick a document, or create one.
         </div>
       </div>
-      <div v-else-if="activeTab === 'Whiteboard'" class="items-tab">
+      <div v-else-if="activeTab === 'whiteboards'" class="items-tab">
         <ItemList
           kind="whiteboard"
           :items="detail.whiteboards || []"
           :members="members"
           :selectedId="selectedWbId"
-          @select="selectWhiteboard"
+          @select="openItem"
           @create="(title) => createItem('whiteboard', title)"
           @rename="(id, title) => renameItem('whiteboard', id, title)"
           @delete="(id) => deleteItem('whiteboard', id)"
@@ -62,7 +62,7 @@
           :whiteboardId="selectedWbId"
           :connectedUser="connectedUser"
           :canClear="canClearSelectedWb"
-          @closed="selectWhiteboard(null)"
+          @closed="closeItem"
         />
         <div v-else class="tab-placeholder items-placeholder">
           Pick a whiteboard, or create one.
@@ -83,8 +83,8 @@ import DocumentEditor from "@/components/workspaces/documents/DocumentEditor.vue
 import WhiteboardCanvas from "@/components/workspaces/whiteboard/WhiteboardCanvas.vue";
 import { emitWithAck } from "@/workspaces/socketCall";
 import { itemErrorMessage } from "@/workspaces/items";
+import { TABS, parseWorkspaceRoute, workspacePath } from "@/workspaces/workspaceRoute";
 
-const TABS = ["Tasks", "Documents", "Whiteboard"];
 // Socket event prefix and detail list per item kind.
 const ITEM_KINDS = {
   document: { prefix: "doc", list: "documents" },
@@ -114,13 +114,52 @@ export default {
   },
   data() {
     return {
-      tabs: TABS,
-      activeTab: TABS[0],
-      selectedDocId: null,
-      selectedWbId: null,
+      // Last item that was actually open: tells "was deleted" (it vanished
+      // while open) from "no longer exists" (a stale link).
+      seenItemId: null,
     };
   },
   computed: {
+    // Tab and open item come from the URL (see workspaceRoute.js).
+    route() {
+      return parseWorkspaceRoute(this.$route.params);
+    },
+    activeTab() {
+      return this.route.tab;
+    },
+    selectedDocId() {
+      return this.activeTab === "documents" ? this.route.itemId : null;
+    },
+    selectedWbId() {
+      return this.activeTab === "whiteboards" ? this.route.itemId : null;
+    },
+    tabs() {
+      const d = this.detail || {};
+      const counts = { tasks: d.tasks, documents: d.documents, whiteboards: d.whiteboards };
+      return TABS.map((t) => ({ ...t, count: (counts[t.slug] || []).length }));
+    },
+    // The detail on screen is the one the URL names (not the previous
+    // workspace's, still shown while the next one loads).
+    detailReady() {
+      return !!this.detail && String(this.detail.workspace._id) === this.route.workspaceId;
+    },
+    openKind() {
+      if (this.activeTab === "documents") return "document";
+      if (this.activeTab === "whiteboards") return "whiteboard";
+      return null;
+    },
+    openedItem() {
+      return this.selectedDoc || this.selectedWb;
+    },
+    // The URL names an item this workspace doesn't have.
+    missingItem() {
+      return this.detailReady && !!this.route.itemId && !this.openedItem;
+    },
+    // What presence should say I'm on; re-sent once the workspace is joined.
+    focus() {
+      if (!this.detailReady || !this.openedItem) return null;
+      return { kind: this.openKind, id: this.route.itemId };
+    },
     socket() {
       return this.$store.getters["socket/socket"];
     },
@@ -155,42 +194,48 @@ export default {
     },
   },
   watch: {
-    workspaceId() {
-      // Another workspace: start on its task board with nothing open.
-      this.selectedDocId = null;
-      this.selectedWbId = null;
-      this.activeTab = TABS[0];
+    openedItem(item) {
+      if (item) this.seenItemId = this.route.itemId;
     },
-    selectedDoc(doc, previous) {
-      // The open document was deleted (here or by someone else).
-      if (!doc && previous && this.selectedDocId) {
-        this.$toast.info(itemErrorMessage("not_found", "document"));
-        this.selectDocument(null);
-      }
+    missingItem: {
+      immediate: true,
+      handler(missing) {
+        if (!missing) return;
+        const kind = this.openKind;
+        // Deleted while open (here or by someone else), or a stale link.
+        const text =
+          this.seenItemId === this.route.itemId
+            ? itemErrorMessage("not_found", kind)
+            : `This ${kind} no longer exists`;
+        this.$toast.info(text);
+        this.closeItem();
+      },
     },
-    selectedWb(wb, previous) {
-      if (!wb && previous && this.selectedWbId) {
-        this.$toast.info(itemErrorMessage("not_found", "whiteboard"));
-        this.selectWhiteboard(null);
-      }
+    focus: {
+      immediate: true,
+      handler(focus, previous) {
+        if (JSON.stringify(focus) !== JSON.stringify(previous || null)) {
+          this.$emit("focus", focus);
+        }
+      },
     },
   },
   methods: {
+    go(location, replace = false) {
+      const path = workspacePath({ workspaceId: this.route.workspaceId, ...location });
+      if (path === this.$route.path) return Promise.resolve();
+      // Duplicate/aborted navigations reject in vue-router 3; nothing to do.
+      return this.$router[replace ? "replace" : "push"](path).catch(() => {});
+    },
     setActiveTab(tab) {
-      this.activeTab = tab;
-      this.selectedDocId = null;
-      this.selectedWbId = null;
-      // Switching tabs drops any item-level focus; the tabs-to-be emit
-      // `focus` with {kind, id} when the user opens an item.
-      this.$emit("focus", null);
+      this.go({ tab });
     },
-    selectDocument(id) {
-      this.selectedDocId = id || null;
-      this.$emit("focus", id ? { kind: "document", id } : null);
+    openItem(id) {
+      this.go({ tab: this.activeTab, itemId: id || null });
     },
-    selectWhiteboard(id) {
-      this.selectedWbId = id || null;
-      this.$emit("focus", id ? { kind: "whiteboard", id } : null);
+    // Close the open item without leaving a history entry for it.
+    closeItem() {
+      return this.go({ tab: this.activeTab }, true);
     },
     // Resolves { data } on success, null (after a toast) on failure.
     // `context` "title" picks the title-length copy for an `invalid` error.
@@ -216,8 +261,7 @@ export default {
       if (this.workspaceId !== workspaceId) return;
       const item = result.data;
       this.$emit("item-event", { kind, action: "created", item });
-      if (kind === "document") this.selectDocument(String(item._id));
-      else this.selectWhiteboard(String(item._id));
+      this.go({ tab: ITEM_KINDS[kind].list, itemId: String(item._id) });
     },
     async renameItem(kind, id, title) {
       const result = await this.callItem(kind, "rename", "title", id, title);
@@ -227,8 +271,8 @@ export default {
       // Close it only once the delete succeeded; on failure it stays open.
       const result = await this.callItem(kind, "delete", null, id);
       if (!result) return;
-      if (kind === "document" && id === this.selectedDocId) this.selectDocument(null);
-      if (kind === "whiteboard" && id === this.selectedWbId) this.selectWhiteboard(null);
+      // Leave the URL first so the vanished item isn't reported as missing.
+      if (id === this.route.itemId) await this.closeItem();
       this.$emit("item-event", { kind, action: "deleted", item: { _id: id } });
     },
   },

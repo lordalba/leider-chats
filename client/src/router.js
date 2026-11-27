@@ -79,7 +79,7 @@ const router = new VueRouter({
     },
 
     {
-      path: "/workspaces/:workspaceId?",
+      path: "/workspaces/:workspaceId?/:tab?/:itemId?",
       name: "workspaces",
       component: Workspaces,
       meta: {

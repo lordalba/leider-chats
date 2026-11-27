@@ -161,7 +161,12 @@ async function launch({ chrome, outDir, port = 9333 + Math.floor(Math.random() *
       ws.close();
       proc.kill();
       await sleep(300);
-      fs.rmSync(profile, { recursive: true, force: true });
+      try {
+        // The browser can hold files a moment after exit on Windows.
+        fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+      } catch {
+        // a leftover temp profile is harmless
+      }
     },
   };
   return b;
