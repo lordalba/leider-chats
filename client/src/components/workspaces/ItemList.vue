@@ -44,6 +44,7 @@
             v-for="member in viewers[item._id]"
             :key="member.userId"
             :username="member.username"
+            :userId="String(member.userId)"
             :src="member.profilePictureUrl || ''"
             :size="20"
           />

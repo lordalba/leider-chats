@@ -19,6 +19,7 @@
           :key="member.userId"
           class="task-viewer"
           :username="member.username"
+          :userId="String(member.userId)"
           :src="member.profilePictureUrl || ''"
           :size="22"
         />
@@ -31,6 +32,7 @@
           :key="user._id"
           class="task-assignee"
           :username="user.username"
+          :userId="String(user._id)"
           :src="user.profilePictureUrl || ''"
           :size="24"
         />

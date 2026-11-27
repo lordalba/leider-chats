@@ -11,7 +11,7 @@
             in {{ detail.chat.name }}
           </small>
         </div>
-        <PresenceBar :members="members" />
+        <PresenceBar :members="members" :meId="meId" :detail="detail" />
       </div>
       <Tabs :tabs="tabs" @change-tab="setActiveTab" />
       <TaskBoard
@@ -126,6 +126,9 @@ export default {
     },
     connectedUser() {
       return this.$store.state.connectedUser || null;
+    },
+    meId() {
+      return this.connectedUser ? String(this.connectedUser._id) : null;
     },
     workspaceId() {
       return this.detail ? String(this.detail.workspace._id) : null;

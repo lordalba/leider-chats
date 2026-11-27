@@ -4,6 +4,7 @@
  *   node server/scripts/seed-demo.js        (once; writes demo.json)
  *   node client/scripts/ui-shots/shots.js [--only <prefix>]
  *
+ * Flags: --only <prefix>, --as bob
  * Env: CHROME (browser binary; default Edge), APP (default http://localhost:8080/#).
  * Output: client/ui-shots-out/*.png — each line prints PAGE SCROLL / H-OVERFLOW.
  */
@@ -24,6 +25,8 @@ const demo = JSON.parse(fs.readFileSync(demoFile, "utf8"));
 
 const args = process.argv.slice(2);
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : "";
+// --as bob: log in as the seeded second user instead of alice.
+const asBob = args.includes("--as") && args[args.indexOf("--as") + 1] === "bob";
 
 const ws = (rest = "") => `${APP}/workspaces/${demo.workspaceId}${rest}`;
 
@@ -68,7 +71,7 @@ const scenes = [
 async function login(b) {
   await b.nav(`${APP}/login`, 3000);
   await b.waitFor('input[type="password"]');
-  await b.type('input[type="text"]', demo.email);
+  await b.type('input[type="text"]', asBob ? demo.bobEmail : demo.email);
   await b.type('input[type="password"]', demo.password);
   await b.click('button[type="submit"]', null, 2500);
   await b.click(".swal2-confirm", null, 500); // pre-Task-2 login alert, if any

@@ -2,14 +2,21 @@
   <div
     class="user-avatar"
     :title="username"
-    :style="{ width: size + 'px', height: size + 'px', fontSize: size * 0.4 + 'px' }"
+    :style="{
+      width: size + 'px',
+      height: size + 'px',
+      fontSize: size * 0.4 + 'px',
+      background: color,
+    }"
   >
-    <img v-if="src" :src="src" :alt="username" />
-    <span v-else>{{ initials }}</span>
+    <img v-if="src && !imgFailed" :src="src" :alt="username" @error="imgFailed = true" />
+    <span v-else aria-hidden="true">{{ initials }}</span>
   </div>
 </template>
 
 <script>
+import { userColor } from "@/workspaces/items";
+
 export default {
   name: "UserAvatar",
   props: {
@@ -21,10 +28,21 @@ export default {
       type: String,
       default: "",
     },
+    // Gives the initials fallback a stable per-user color.
+    userId: {
+      type: String,
+      default: "",
+    },
     size: {
       type: Number,
       default: 34,
     },
+  },
+  data() {
+    return {
+      // A missing/broken image shows initials, never alt text.
+      imgFailed: false,
+    };
   },
   computed: {
     initials() {
@@ -33,6 +51,14 @@ export default {
         .slice(0, 2)
         .map((p) => p.charAt(0).toUpperCase())
         .join("");
+    },
+    color() {
+      return this.userId ? userColor(this.userId) : "var(--ws-accent)";
+    },
+  },
+  watch: {
+    src() {
+      this.imgFailed = false;
     },
   },
 };
@@ -44,7 +70,6 @@ export default {
   border-radius: 50%;
   border: 2px solid #fff;
   overflow: hidden;
-  background: #45815c;
   color: #fff;
   display: flex;
   align-items: center;
