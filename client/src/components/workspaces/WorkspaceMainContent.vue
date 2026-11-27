@@ -1,18 +1,12 @@
 <template>
   <div class="workspace-main">
     <div v-if="detail">
-      <div class="workspace-header">
-        <div>
-          <h2>{{ detail.workspace.name }}</h2>
-          <p v-if="detail.workspace.description" class="workspace-description">
-            {{ detail.workspace.description }}
-          </p>
-          <small v-if="detail.chat && detail.chat.name" class="workspace-chat">
-            in {{ detail.chat.name }}
-          </small>
-        </div>
-        <PresenceBar :members="members" :meId="meId" :detail="detail" />
-      </div>
+      <WorkspaceHeader
+        :detail="detail"
+        :members="members"
+        :meId="meId"
+        @delete="(id) => $emit('delete-workspace', id)"
+      />
       <Tabs :tabs="tabs" :value="activeTab" @input="setActiveTab" />
       <TaskBoard
         v-if="activeTab === 'tasks'"
@@ -115,7 +109,8 @@
 <script>
 import EmptyState from "@/components/workspaces/EmptyState.vue";
 import Tabs from "@/components/workspaces/Tabs.vue";
-import PresenceBar from "@/components/workspaces/PresenceBar.vue";
+import WorkspaceHeader from "@/components/workspaces/WorkspaceHeader.vue";
+import { isChatAdminOrCreator } from "@/workspaces/permissions";
 import TaskBoard from "@/components/workspaces/tasks/TaskBoard.vue";
 import ItemList from "@/components/workspaces/ItemList.vue";
 import DocumentEditor from "@/components/workspaces/documents/DocumentEditor.vue";
@@ -150,7 +145,7 @@ export default {
   components: {
     Tabs,
     EmptyState,
-    PresenceBar,
+    WorkspaceHeader,
     TaskBoard,
     ItemList,
     DocumentEditor,
@@ -231,10 +226,8 @@ export default {
       );
     },
     canClearSelectedWb() {
-      const me = this.connectedUser && String(this.connectedUser._id);
-      if (!me || !this.selectedWb) return false;
-      const admins = ((this.detail.chat && this.detail.chat.admins) || []).map(String);
-      return String(this.selectedWb.createdBy) === me || admins.includes(me);
+      if (!this.selectedWb) return false;
+      return isChatAdminOrCreator(this.detail, this.meId, this.selectedWb.createdBy);
     },
   },
   watch: {
@@ -329,19 +322,6 @@ export default {
   padding: 20px;
   min-width: 0;
   overflow-y: auto;
-}
-.workspace-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-.workspace-description {
-  color: #555;
-  margin: 4px 0;
-}
-.workspace-chat {
-  color: gray;
 }
 .items-tab {
   display: flex;

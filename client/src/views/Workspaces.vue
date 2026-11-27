@@ -13,6 +13,7 @@
       :loading="loadingDetail"
       @retry="openWorkspace(workspaceId)"
       @create-workspace="showCreate = true"
+      @delete-workspace="deleteWorkspace"
       @focus="setFocus"
       @item-event="applyItemEvent"
     />
@@ -34,7 +35,7 @@ import { emitWithAck, ensureSocket } from "@/workspaces/socketCall";
 import { applyItemEvent as applyListEvent } from "@/workspaces/taskBoard";
 import { handleSessionExpired } from "@/auth/session";
 
-const REVOKED_MESSAGE = "You no longer have access to this workspace";
+const REVOKED_MESSAGE = "This workspace was deleted or you lost access";
 // workspace:item kind -> list on the workspace detail.
 const ITEM_LISTS = { task: "tasks", document: "documents", whiteboard: "whiteboards" };
 
@@ -53,6 +54,8 @@ export default {
       // True while the selected workspace's snapshot is being fetched.
       loadingDetail: false,
       showCreate: false,
+      // Set while I delete a workspace: its workspace:revoked is my own doing.
+      deletingId: null,
       members: [],
       // Workspace this socket has joined (and must leave on switch/destroy).
       joinedId: null,
@@ -209,6 +212,30 @@ export default {
       }
       this.loadList();
     },
+    async deleteWorkspace(id) {
+      if (!this.socket) {
+        this.$toast.error("Could not delete the workspace");
+        return;
+      }
+      this.deletingId = id;
+      try {
+        await emitWithAck(this.socket, "workspace:delete", id);
+      } catch (error) {
+        console.error("workspace:delete failed:", error);
+        this.$toast.error(
+          error.message === "forbidden"
+            ? "Only its creator or a chat admin can delete this workspace"
+            : "Could not delete the workspace"
+        );
+        return;
+      } finally {
+        this.deletingId = null;
+      }
+      this.joinedId = null; // the server already took us out of its rooms
+      this.$toast.success("Workspace deleted");
+      if (this.workspaceId === id) this.$router.push("/workspaces").catch(() => {});
+      this.loadList();
+    },
     onCreated(workspace) {
       this.loadList();
       this.$router.push(workspacePath({ workspaceId: String(workspace._id) })).catch(() => {});
@@ -274,6 +301,7 @@ export default {
     },
     onRevoked(payload) {
       if (!payload || String(payload.workspaceId) !== this.workspaceId) return;
+      if (String(payload.workspaceId) === this.deletingId) return; // my own delete
       // The server already removed us from the rooms; no leave needed.
       this.openSeq++;
       this.denyAccess();

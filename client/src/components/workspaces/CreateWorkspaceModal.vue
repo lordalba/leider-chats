@@ -2,8 +2,8 @@
   <b-modal
     :visible="visible"
     content-class="ws-scope"
-    title="New workspace"
-    ok-title="Create workspace"
+    :title="editing ? 'Edit workspace' : 'New workspace'"
+    :ok-title="editing ? 'Save' : 'Create workspace'"
     cancel-variant="outline-secondary"
     :ok-disabled="!canSubmit"
     @show="onShow"
@@ -12,7 +12,7 @@
     @change="(v) => $emit('update:visible', v)"
   >
     <b-form @submit.prevent="submit">
-      <template v-if="!chatroomId">
+      <template v-if="!chatroomId && !editing">
         <p v-if="chatsLoading" class="text-muted">Loading your group chats…</p>
         <div v-else-if="!chatOptions.length" class="no-groups">
           <p>You need a group chat to create a workspace.</p>
@@ -62,6 +62,8 @@ const ERROR_MESSAGES = {
   invalid: "Name must be 1–80 characters",
 };
 
+// Create mode by default; pass `workspace` to edit its name and description.
+
 export default {
   name: "CreateWorkspaceModal",
   props: {
@@ -75,6 +77,11 @@ export default {
       default: null,
     },
     socket: {
+      type: Object,
+      default: null,
+    },
+    // Edit mode: the workspace to rename/describe.
+    workspace: {
       type: Object,
       default: null,
     },
@@ -93,15 +100,20 @@ export default {
     trimmedName() {
       return this.name.trim();
     },
+    editing() {
+      return !!this.workspace;
+    },
     targetChatId() {
       return this.chatroomId || this.pickedChatId;
     },
     // No chat given and none to pick from.
     needsGroup() {
-      return !this.chatroomId && (this.chatsLoading || !this.chatOptions.length);
+      return !this.editing && !this.chatroomId && (this.chatsLoading || !this.chatOptions.length);
     },
     canSubmit() {
-      return !!this.trimmedName && !!this.targetChatId && !this.submitting;
+      return (
+        !!this.trimmedName && (this.editing || !!this.targetChatId) && !this.submitting
+      );
     },
   },
   methods: {
@@ -112,6 +124,11 @@ export default {
         return;
       }
       this.submitting = true;
+      if (this.editing) {
+        await this.save();
+        this.submitting = false;
+        return;
+      }
       try {
         const input = { name: this.trimmedName };
         if (this.description.trim()) input.description = this.description.trim();
@@ -132,7 +149,27 @@ export default {
         this.submitting = false;
       }
     },
+    async save() {
+      try {
+        const workspace = await emitWithAck(
+          this.socket,
+          "workspace:rename",
+          String(this.workspace._id),
+          { name: this.trimmedName, description: this.description.trim() }
+        );
+        this.$emit("saved", workspace);
+        this.$emit("update:visible", false);
+      } catch (error) {
+        console.error("workspace:rename failed:", error);
+        this.$toast.error(ERROR_MESSAGES[error.message] || "Could not save the workspace");
+      }
+    },
     async onShow() {
+      if (this.editing) {
+        this.name = this.workspace.name || "";
+        this.description = this.workspace.description || "";
+        return;
+      }
       if (this.chatroomId) return;
       this.chatsLoading = true;
       try {
