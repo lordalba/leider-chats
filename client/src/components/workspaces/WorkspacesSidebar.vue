@@ -1,9 +1,15 @@
 <template>
   <div class="workspaces-sidebar">
-    <h3>Workspaces</h3>
+    <div class="sidebar-head">
+      <h3>Workspaces</h3>
+      <b-button size="sm" variant="primary" @click="$emit('create')">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> New
+        <span class="sr-only">workspace</span>
+      </b-button>
+    </div>
     <p v-if="loading" class="sidebar-hint">Loading…</p>
     <p v-else-if="groups.length === 0" class="sidebar-hint">
-      No workspaces yet. Create one from a chat's details panel.
+      No workspaces yet. Start one with “New”.
     </p>
     <div v-for="group in groups" :key="group.chatRoomId" class="chat-group">
       <h6 class="chat-group-name">{{ group.chatName || "Chat" }}</h6>
@@ -57,6 +63,15 @@ export default {
 </script>
 
 <style scoped>
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+}
+.sidebar-head h3 {
+  margin: 0;
+}
 .workspaces-sidebar {
   width: 350px;
   min-width: 260px;

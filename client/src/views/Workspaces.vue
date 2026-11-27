@@ -5,14 +5,21 @@
       :selectedWorkspaceId="workspaceId"
       :loading="loadingList"
       @select-workspace="selectWorkspace"
+      @create="showCreate = true"
     />
     <MainContent
       :detail="detail"
       :members="members"
       :loading="loadingDetail"
       @retry="openWorkspace(workspaceId)"
+      @create-workspace="showCreate = true"
       @focus="setFocus"
       @item-event="applyItemEvent"
+    />
+    <CreateWorkspaceModal
+      :visible.sync="showCreate"
+      :socket="socket"
+      @created="onCreated"
     />
   </div>
 </template>
@@ -20,6 +27,8 @@
 <script>
 import WorkspaceMainContent from "@/components/workspaces/WorkspaceMainContent.vue";
 import WorkspacesSidebar from "@/components/workspaces/WorkspacesSidebar.vue";
+import CreateWorkspaceModal from "@/components/workspaces/CreateWorkspaceModal.vue";
+import { workspacePath } from "@/workspaces/workspaceRoute";
 import { fetchWorkspace, fetchWorkspaces } from "@/api/WorkspaceService";
 import { emitWithAck, ensureSocket } from "@/workspaces/socketCall";
 import { applyItemEvent as applyListEvent } from "@/workspaces/taskBoard";
@@ -34,6 +43,7 @@ export default {
   components: {
     MainContent: WorkspaceMainContent,
     Sidebar: WorkspacesSidebar,
+    CreateWorkspaceModal,
   },
   data() {
     return {
@@ -42,6 +52,7 @@ export default {
       detail: null,
       // True while the selected workspace's snapshot is being fetched.
       loadingDetail: false,
+      showCreate: false,
       members: [],
       // Workspace this socket has joined (and must leave on switch/destroy).
       joinedId: null,
@@ -197,6 +208,10 @@ export default {
         this.$router.push("/workspaces").catch(() => {});
       }
       this.loadList();
+    },
+    onCreated(workspace) {
+      this.loadList();
+      this.$router.push(workspacePath({ workspaceId: String(workspace._id) })).catch(() => {});
     },
     selectWorkspace(workspace) {
       if (workspace._id !== this.workspaceId) {
