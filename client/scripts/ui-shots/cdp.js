@@ -46,6 +46,7 @@ async function launch({ chrome, outDir, port = 9333 + Math.floor(Math.random() *
   let nextId = 0;
   const pending = new Map();
   const errors = [];
+  const listeners = {}; // CDP event method -> [fn]
   ws.onmessage = (m) => {
     const msg = JSON.parse(m.data);
     if (msg.id && pending.has(msg.id)) {
@@ -53,6 +54,8 @@ async function launch({ chrome, outDir, port = 9333 + Math.floor(Math.random() *
       pending.delete(msg.id);
       if (msg.error) reject(new Error(msg.error.message));
       else resolve(msg.result);
+    } else if (listeners[msg.method]) {
+      listeners[msg.method].forEach((fn) => fn(msg.params));
     } else if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") {
       errors.push(msg.params.args.map((a) => a.value || a.description).join(" ").split("\n")[0]);
     } else if (msg.method === "Runtime.exceptionThrown") {
@@ -73,6 +76,17 @@ async function launch({ chrome, outDir, port = 9333 + Math.floor(Math.random() *
   const b = {
     send,
     sleep,
+    // Subscribe to a CDP event, e.g. on("Fetch.requestPaused", fn).
+    on(method, fn) {
+      (listeners[method] = listeners[method] || []).push(fn);
+    },
+    // Hold matching requests for `ms` before letting them through.
+    async slowRequests(urlPattern, ms) {
+      b.on("Fetch.requestPaused", ({ requestId }) =>
+        setTimeout(() => send("Fetch.continueRequest", { requestId }).catch(() => {}), ms)
+      );
+      await send("Fetch.enable", { patterns: [{ urlPattern }] });
+    },
     errors,
     width: 1440,
     async size(width, height) {

@@ -4,7 +4,8 @@
  *   node server/scripts/seed-demo.js        (once; writes demo.json)
  *   node client/scripts/ui-shots/shots.js [--only <prefix>]
  *
- * Flags: --only <prefix>, --as bob
+ * Flags: --only <prefix>, --as bob, --slow (delays workspace API responses 4s
+ *        and shoots the loading state as 00-loading)
  * Env: CHROME (browser binary; default Edge), APP (default http://localhost:8080/#).
  * Output: client/ui-shots-out/*.png — each line prints PAGE SCROLL / H-OVERFLOW.
  */
@@ -27,6 +28,7 @@ const args = process.argv.slice(2);
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : "";
 // --as bob: log in as the seeded second user instead of alice.
 const asBob = args.includes("--as") && args[args.indexOf("--as") + 1] === "bob";
+const slow = args.includes("--slow");
 
 const ws = (rest = "") => `${APP}/workspaces/${demo.workspaceId}${rest}`;
 
@@ -74,7 +76,6 @@ async function login(b) {
   await b.type('input[type="text"]', asBob ? demo.bobEmail : demo.email);
   await b.type('input[type="password"]', demo.password);
   await b.click('button[type="submit"]', null, 2500);
-  await b.click(".swal2-confirm", null, 500); // pre-Task-2 login alert, if any
 }
 
 async function main() {
@@ -82,6 +83,15 @@ async function main() {
   try {
     await b.size(1440, 900);
     await login(b);
+    if (slow) {
+      await b.slowRequests("*/api/workspaces/*", 4000);
+      for (const [width, height, suffix] of [[1440, 900, ""], [390, 844, "-mobile"]]) {
+        await b.size(width, height);
+        await b.nav(ws(), 1200);
+        await b.shot("00-loading" + suffix);
+      }
+      return;
+    }
     for (const [width, height, suffix] of [[1440, 900, ""], [390, 844, "-mobile"]]) {
       await b.size(width, height);
       for (const [name, run] of scenes) {

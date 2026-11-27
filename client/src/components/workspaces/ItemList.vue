@@ -2,6 +2,7 @@
   <div class="item-list">
     <form class="item-create" @submit.prevent="submitCreate">
       <b-form-input
+        ref="createInput"
         v-model="newTitle"
         size="sm"
         :placeholder="`New ${kindLabel} title`"
@@ -107,6 +108,11 @@ export default {
     },
   },
   methods: {
+    // Called by the parent's "New document/whiteboard" empty-state button.
+    focusCreate() {
+      const input = this.$refs.createInput;
+      if (input && input.focus) input.focus();
+    },
     submitCreate() {
       const title = this.newTitle.trim();
       if (!title) return;

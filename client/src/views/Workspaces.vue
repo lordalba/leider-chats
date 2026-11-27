@@ -9,6 +9,8 @@
     <MainContent
       :detail="detail"
       :members="members"
+      :loading="loadingDetail"
+      @retry="openWorkspace(workspaceId)"
       @focus="setFocus"
       @item-event="applyItemEvent"
     />
@@ -38,6 +40,8 @@ export default {
       workspaces: [],
       loadingList: false,
       detail: null,
+      // True while the selected workspace's snapshot is being fetched.
+      loadingDetail: false,
       members: [],
       // Workspace this socket has joined (and must leave on switch/destroy).
       joinedId: null,
@@ -111,8 +115,13 @@ export default {
       this.detail = null;
       this.members = [];
       this.pendingEvents = null;
+      this.loadingDetail = !!id;
       if (!id) return;
-      await this.loadWorkspace(id, seq);
+      try {
+        await this.loadWorkspace(id, seq);
+      } finally {
+        if (seq === this.openSeq) this.loadingDetail = false;
+      }
     },
     // Join the rooms first, then take the REST snapshot, then replay the
     // workspace:item events that arrived during the fetch (last-write-wins by

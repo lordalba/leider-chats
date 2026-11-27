@@ -25,6 +25,7 @@
       />
       <div v-else-if="activeTab === 'documents'" class="items-tab">
         <ItemList
+          ref="documentList"
           kind="document"
           :items="detail.documents || []"
           :members="members"
@@ -41,12 +42,18 @@
           :connectedUser="connectedUser"
           @closed="closeItem"
         />
-        <div v-else class="tab-placeholder items-placeholder">
-          Pick a document, or create one.
-        </div>
+        <EmptyState
+          v-else
+          icon="fa-file-lines"
+          title="No document open"
+          body="Choose one from the list or create a new one."
+          actionLabel="New document"
+          @action="$refs.documentList.focusCreate()"
+        />
       </div>
       <div v-else-if="activeTab === 'whiteboards'" class="items-tab">
         <ItemList
+          ref="whiteboardList"
           kind="whiteboard"
           :items="detail.whiteboards || []"
           :members="members"
@@ -64,12 +71,44 @@
           :canClear="canClearSelectedWb"
           @closed="closeItem"
         />
-        <div v-else class="tab-placeholder items-placeholder">
-          Pick a whiteboard, or create one.
-        </div>
+        <EmptyState
+          v-else
+          icon="fa-chalkboard"
+          title="No whiteboard open"
+          body="Choose one from the list or create a new one."
+          actionLabel="New whiteboard"
+          @action="$refs.whiteboardList.focusCreate()"
+        />
       </div>
     </div>
-    <EmptyState v-else />
+    <div
+      v-else-if="route.workspaceId && loading"
+      class="ws-skeleton"
+      aria-busy="true"
+      aria-label="Loading workspace"
+    >
+      <div class="ws-skeleton-header"></div>
+      <div class="ws-skeleton-tabs"></div>
+      <div class="ws-skeleton-columns">
+        <div v-for="n in 4" :key="n" class="ws-skeleton-column"></div>
+      </div>
+    </div>
+    <EmptyState
+      v-else-if="route.workspaceId"
+      icon="fa-triangle-exclamation"
+      title="Couldn't load this workspace"
+      body="Check your connection and try again."
+      actionLabel="Try again"
+      @action="$emit('retry')"
+    />
+    <EmptyState
+      v-else
+      icon="fa-table-columns"
+      title="Pick a workspace"
+      body="Workspaces belong to a group chat. Open one on the left or start a new one."
+      actionLabel="New workspace"
+      @action="$emit('create-workspace')"
+    />
   </div>
 </template>
 
@@ -101,6 +140,11 @@ export default {
     members: {
       type: Array,
       default: () => [],
+    },
+    // The selected workspace's snapshot is on its way.
+    loading: {
+      type: Boolean,
+      default: false,
     },
   },
   components: {
@@ -304,12 +348,47 @@ export default {
   gap: 16px;
   align-items: flex-start;
 }
-.items-placeholder {
-  flex: 1;
+.items-tab > .empty-state {
+  align-self: stretch;
+  border: 1px dashed var(--ws-border);
+  border-radius: var(--ws-radius);
 }
-.tab-placeholder {
-  color: gray;
-  padding: 40px;
-  text-align: center;
+.ws-skeleton > div,
+.ws-skeleton-column {
+  border-radius: var(--ws-radius);
+  background: linear-gradient(90deg, #dcdfe3 0%, #eceef1 50%, #dcdfe3 100%);
+  background-size: 200% 100%;
+  animation: ws-shimmer 1.4s ease-in-out infinite;
+}
+.ws-skeleton-header {
+  width: 40%;
+  height: 32px;
+  margin-bottom: var(--ws-space-3);
+}
+.ws-skeleton-tabs {
+  width: 320px;
+  max-width: 100%;
+  height: 28px;
+  margin-bottom: var(--ws-space-4);
+}
+.ws-skeleton .ws-skeleton-columns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--ws-space-3);
+  background: none;
+  animation: none;
+}
+.ws-skeleton-column {
+  height: 360px;
+}
+@keyframes ws-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-skeleton > div,
+  .ws-skeleton-column {
+    animation: none;
+  }
 }
 </style>
