@@ -118,6 +118,15 @@ async function main() {
   await call("workspace:create", String(chatId), {
     name: "Long-name workspace to check truncation everywhere it appears in the UI ok",
   });
+  // Enough workspaces (> 5) for the sidebar's search box to appear.
+  for (const [name, description] of [
+    ["Budget", "Who owes what"],
+    ["Camping gear", "Borrow, buy or rent"],
+    ["Playlist", ""],
+    ["Photos", "Shared album and best-of picks"],
+  ]) {
+    await call("workspace:create", String(chatId), { name, ...(description && { description }) });
+  }
   const workspaceId = String(ws._id);
   await call("workspace:join", workspaceId);
 

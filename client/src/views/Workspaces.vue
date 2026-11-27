@@ -4,7 +4,6 @@
       :workspaces="workspaces"
       :selectedWorkspaceId="workspaceId"
       :loading="loadingList"
-      @select-workspace="selectWorkspace"
       @create="showCreate = true"
     />
     <MainContent
@@ -239,11 +238,6 @@ export default {
     onCreated(workspace) {
       this.loadList();
       this.$router.push(workspacePath({ workspaceId: String(workspace._id) })).catch(() => {});
-    },
-    selectWorkspace(workspace) {
-      if (workspace._id !== this.workspaceId) {
-        this.$router.push(`/workspaces/${workspace._id}`).catch(() => {});
-      }
     },
     setFocus(focus) {
       if (!this.socket || !this.joinedId) return;
