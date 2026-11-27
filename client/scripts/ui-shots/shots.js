@@ -53,6 +53,11 @@ const scenes = [
     await b.click("[role=tab], .tabs button", "Whiteboard", 1000);
     await b.click(".item-row", "Route sketch", 2500);
   }],
+  ["08-confirm-delete", async (b) => {
+    await b.nav(ws(), 3000);
+    await b.click("[role=tab], .tabs button", "Documents", 1000);
+    await b.click(".item-row [title=Delete], .item-row [aria-label^=Delete]", null, 1000);
+  }],
   ["07-chat-details", async (b) => {
     await b.nav(`${APP}/chatrooms`, 3000);
     await b.click(".friend-item", "Road trip crew", 2500);

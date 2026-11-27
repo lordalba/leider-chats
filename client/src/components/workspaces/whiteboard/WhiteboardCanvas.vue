@@ -39,7 +39,7 @@
         size="sm"
         variant="outline-danger"
         :disabled="!opened"
-        @click="confirmingClear = true"
+        @click="clearBoard"
       >
         Clear board
       </b-button>
@@ -59,20 +59,11 @@
       ></canvas>
     </div>
 
-    <ConfirmationModal
-      v-if="confirmingClear"
-      title="Clear board"
-      description="Remove every stroke on this whiteboard for everyone?"
-      confirmText="Clear"
-      cancelText="Cancel"
-      :onConfirm="clearBoard"
-      :onCancel="() => (confirmingClear = false)"
-    />
   </div>
 </template>
 
 <script>
-import ConfirmationModal from "@/components/ConfirmationModal.vue";
+import { confirmDanger } from "@/workspaces/confirm";
 import { emitWithAck } from "@/workspaces/socketCall";
 import { itemErrorMessage } from "@/workspaces/items";
 import {
@@ -97,7 +88,6 @@ function newStrokeId() {
 
 export default {
   name: "WhiteboardCanvas",
-  components: { ConfirmationModal },
   props: {
     whiteboardId: {
       type: String,
@@ -120,7 +110,6 @@ export default {
       color: COLORS[0],
       width: WIDTHS[1],
       status: "Loading…",
-      confirmingClear: false,
       // Bumped whenever this.strokes changes, so computed props re-evaluate
       // (the stroke list itself is kept non-reactive for drawing speed).
       strokesVersion: 0,
@@ -394,8 +383,13 @@ export default {
       }
     },
     async clearBoard() {
-      this.confirmingClear = false;
       if (!this.opened) return;
+      const ok = await confirmDanger(this.$bvModal, {
+        title: "Clear the whiteboard?",
+        message: "Every stroke will be removed for everyone.",
+        okTitle: "Clear board",
+      });
+      if (!ok || !this.opened) return;
       try {
         await emitWithAck(this.socket, "wb:clear", this.whiteboardId);
         this.onCleared({ whiteboardId: this.whiteboardId });

@@ -33,15 +33,6 @@
       </b-form-group>
     </b-form>
 
-    <ConfirmationModal
-      v-if="confirmingDelete"
-      title="Delete task"
-      description="Are you sure you want to delete this task?"
-      confirmText="Delete"
-      cancelText="Cancel"
-      :onConfirm="confirmDelete"
-      :onCancel="() => (confirmingDelete = false)"
-    />
 
     <template #modal-footer>
       <b-button
@@ -49,7 +40,7 @@
         variant="outline-danger"
         class="mr-auto me-auto"
         :disabled="busy"
-        @click="confirmingDelete = true"
+        @click="confirmDelete"
       >
         Delete
       </b-button>
@@ -62,7 +53,7 @@
 </template>
 
 <script>
-import ConfirmationModal from "@/components/ConfirmationModal.vue";
+import { confirmDanger } from "@/workspaces/confirm";
 import { emitWithAck } from "@/workspaces/socketCall";
 import {
   dueDateToInput,
@@ -72,7 +63,6 @@ import {
 
 export default {
   name: "TaskEditModal",
-  components: { ConfirmationModal },
   props: {
     visible: {
       type: Boolean,
@@ -113,7 +103,6 @@ export default {
       dueDate: "",
       busy: false,
       deleting: false,
-      confirmingDelete: false,
       // Field values as opened (edit mode), so a save sends only what this
       // user changed and never reverts someone else's concurrent edit.
       initialFields: null,
@@ -155,7 +144,6 @@ export default {
       this.dueDate = task ? dueDateToInput(task.dueDate) : "";
       this.busy = false;
       this.deleting = false;
-      this.confirmingDelete = false;
       this.initialFields = task ? this.fields() : null;
     },
     changedFields() {
@@ -213,8 +201,14 @@ export default {
       }
     },
     async confirmDelete() {
-      this.confirmingDelete = false;
       if (!this.task || this.busy || !this.socket) return;
+      const ok = await confirmDanger(this.$bvModal, {
+        title: "Delete task?",
+        message: `“${this.task.title}” will be deleted for everyone.`,
+        okTitle: "Delete task",
+      });
+      // The task may have been deleted by someone else while asking.
+      if (!ok || !this.task || this.busy) return;
       const id = this.task._id;
       this.busy = true;
       this.deleting = true;
@@ -240,7 +234,6 @@ export default {
       this.$emit("update:visible", false);
     },
     onHidden() {
-      this.confirmingDelete = false;
       this.$emit("update:visible", false);
       this.$emit("hidden");
     },

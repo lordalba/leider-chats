@@ -53,33 +53,24 @@
           <b-button size="sm" variant="link" title="Rename" @click="startRename(item)">
             <i class="fas fa-pen"></i>
           </b-button>
-          <b-button size="sm" variant="link" title="Delete" @click="confirmingItem = item">
+          <b-button size="sm" variant="link" title="Delete" @click="confirmDelete(item)">
             <i class="fas fa-trash"></i>
           </b-button>
         </div>
       </li>
     </ul>
 
-    <ConfirmationModal
-      v-if="confirmingItem"
-      :title="`Delete ${kindLabel}`"
-      :description="`Delete “${confirmingItem.title}” for everyone in this workspace?`"
-      confirmText="Delete"
-      cancelText="Cancel"
-      :onConfirm="confirmDelete"
-      :onCancel="() => (confirmingItem = null)"
-    />
   </div>
 </template>
 
 <script>
 import UserAvatar from "@/components/workspaces/UserAvatar.vue";
-import ConfirmationModal from "@/components/ConfirmationModal.vue";
+import { confirmDanger } from "@/workspaces/confirm";
 import { viewersById } from "@/workspaces/items";
 
 export default {
   name: "ItemList",
-  components: { UserAvatar, ConfirmationModal },
+  components: { UserAvatar },
   props: {
     items: {
       type: Array,
@@ -104,7 +95,6 @@ export default {
       newTitle: "",
       renamingId: null,
       renameTitle: "",
-      confirmingItem: null,
     };
   },
   computed: {
@@ -141,10 +131,13 @@ export default {
       this.cancelRename();
       if (title && title !== item.title) this.$emit("rename", id, title);
     },
-    confirmDelete() {
-      const item = this.confirmingItem;
-      this.confirmingItem = null;
-      if (item) this.$emit("delete", String(item._id));
+    async confirmDelete(item) {
+      const ok = await confirmDanger(this.$bvModal, {
+        title: `Delete ${this.kindLabel}?`,
+        message: `“${item.title}” will be deleted for everyone in this workspace.`,
+        okTitle: "Delete",
+      });
+      if (ok) this.$emit("delete", String(item._id));
     },
   },
 };
