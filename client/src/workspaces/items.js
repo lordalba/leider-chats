@@ -25,10 +25,13 @@ export function userColor(userId) {
 const KIND_LABEL = { document: "document", whiteboard: "whiteboard" };
 
 /** Toast copy for a document/whiteboard socket error code. */
-export function itemErrorMessage(code, kind) {
+export function itemErrorMessage(code, kind, context) {
   switch (code) {
     case "invalid":
-      return "Titles must be 1–120 characters";
+      // Only create/rename send a title; strokes, undo and edits use the same code.
+      return context === "title"
+        ? "Titles must be 1–120 characters"
+        : "The server rejected that change";
     case "not_found":
       return `This ${KIND_LABEL[kind] || "item"} was deleted`;
     case "forbidden":
@@ -39,6 +42,8 @@ export function itemErrorMessage(code, kind) {
       return SESSION_EXPIRED_MESSAGE;
     case "too_large":
       return "That change is too large to sync (try a smaller image)";
+    case "diverged":
+      return "This document stopped syncing because a change was too large or was rejected. Reload the page to continue (your latest changes will be lost).";
     default:
       return "Something went wrong";
   }

@@ -71,7 +71,14 @@ const documentHandler = (io: Server, socket: Socket) => {
       await assertDocumentMember(userId, docId);
       const id = String(docId);
       socket.join(docRoom(id));
-      const update = await yDocManager.open(id, socket.id);
+      let update: Uint8Array;
+      try {
+        update = await yDocManager.open(id, socket.id);
+      } catch (error) {
+        // The load failed: don't leave the socket receiving the doc's broadcasts.
+        socket.leave(docRoom(id));
+        throw error;
+      }
       // Re-check after joining: an eviction or a delete may have landed while
       // the doc was loading (eviction's leave would have run before our join).
       try {

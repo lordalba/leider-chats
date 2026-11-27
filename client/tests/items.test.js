@@ -21,7 +21,9 @@ describe("userColor", () => {
 
 describe("itemErrorMessage", () => {
   it("maps codes to copy per kind", () => {
-    expect(itemErrorMessage("invalid", "document")).toBe("Titles must be 1–120 characters");
+    expect(itemErrorMessage("invalid", "document", "title")).toBe("Titles must be 1–120 characters");
+    // Strokes, undo and edits also answer `invalid`: no title copy for them.
+    expect(itemErrorMessage("invalid", "whiteboard")).toBe("The server rejected that change");
     expect(itemErrorMessage("not_found", "document")).toBe("This document was deleted");
     expect(itemErrorMessage("not_found", "whiteboard")).toBe("This whiteboard was deleted");
     expect(itemErrorMessage("forbidden", "document")).toBe("You no longer have access to this workspace");

@@ -103,7 +103,8 @@ export default {
     });
     this.provider.on("error", (error) => this.onError(error));
     this.socket.on("disconnect", this.onDisconnect);
-    this.provider.connect().catch((error) => this.onError(error));
+    // resync() retries a failed open with backoff instead of waiting for a reconnect.
+    this.provider.resync();
   },
   beforeDestroy() {
     if (this.socket) this.socket.off("disconnect", this.onDisconnect);
@@ -125,6 +126,10 @@ export default {
       this.$toast.error(itemErrorMessage(code, "document"));
       if (code === "not_found" || code === "forbidden") {
         this.$emit("closed");
+      } else if (code === "diverged") {
+        // Further edits could never sync: stop accepting them.
+        if (this.quill) this.quill.enable(false);
+        this.status = itemErrorMessage(code, "document");
       } else if (code !== "too_large") {
         this.status = itemErrorMessage(code, "document");
       }

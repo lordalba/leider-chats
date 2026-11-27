@@ -190,7 +190,8 @@ export default {
       this.$emit("focus", id ? { kind: "whiteboard", id } : null);
     },
     // Resolves { data } on success, null (after a toast) on failure.
-    async callItem(kind, action, ...args) {
+    // `context` "title" picks the title-length copy for an `invalid` error.
+    async callItem(kind, action, context, ...args) {
       if (!this.socket) {
         this.$toast.error(itemErrorMessage("timeout", kind));
         return null;
@@ -199,27 +200,32 @@ export default {
         const event = `${ITEM_KINDS[kind].prefix}:${action}`;
         return { data: await emitWithAck(this.socket, event, ...args) };
       } catch (error) {
-        this.$toast.error(itemErrorMessage(error.message, kind));
+        this.$toast.error(itemErrorMessage(error.message, kind, context));
         return null;
       }
     },
     async createItem(kind, title) {
-      const result = await this.callItem(kind, "create", this.workspaceId, title);
+      const workspaceId = this.workspaceId;
+      const result = await this.callItem(kind, "create", "title", workspaceId, title);
       if (!result) return;
+      // The user moved to another workspace meanwhile: the item belongs to
+      // the old one, whose list refetches when it is opened again.
+      if (this.workspaceId !== workspaceId) return;
       const item = result.data;
       this.$emit("item-event", { kind, action: "created", item });
       if (kind === "document") this.selectDocument(String(item._id));
       else this.selectWhiteboard(String(item._id));
     },
     async renameItem(kind, id, title) {
-      const result = await this.callItem(kind, "rename", id, title);
+      const result = await this.callItem(kind, "rename", "title", id, title);
       if (result) this.$emit("item-event", { kind, action: "updated", item: result.data });
     },
     async deleteItem(kind, id) {
+      // Close it only once the delete succeeded; on failure it stays open.
+      const result = await this.callItem(kind, "delete", null, id);
+      if (!result) return;
       if (kind === "document" && id === this.selectedDocId) this.selectDocument(null);
       if (kind === "whiteboard" && id === this.selectedWbId) this.selectWhiteboard(null);
-      const result = await this.callItem(kind, "delete", id);
-      if (!result) return;
       this.$emit("item-event", { kind, action: "deleted", item: { _id: id } });
     },
   },

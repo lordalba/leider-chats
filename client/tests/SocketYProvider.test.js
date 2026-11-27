@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import * as Y from "yjs";
 import { SocketYProvider, MAX_UPDATE_BYTES } from "../src/workspaces/SocketYProvider.js";
 
@@ -13,6 +13,8 @@ class FakeHub {
     this.received = []; // every doc:update payload the hub accepted
     this.events = []; // every event name the hub received
     this.open = new Set();
+    // When set, every doc:update is refused with this error code.
+    this.failUpdates = null;
   }
 
   socket() {
@@ -32,6 +34,7 @@ class FakeHub {
       reply({ ok: true, data: null });
     } else if (event === "doc:update") {
       if (!this.open.has(from)) return reply({ ok: false, error: "forbidden" });
+      if (this.failUpdates) return reply({ ok: false, error: this.failUpdates });
       const update = new Uint8Array(args[1]);
       this.received.push(update);
       Y.applyUpdate(this.doc, update);
@@ -202,7 +205,7 @@ describe("SocketYProvider", () => {
     b.provider.destroy();
   });
 
-  it("an update over MAX_UPDATE_BYTES is not sent (it would drop the socket) and reports too_large", async () => {
+  it("an update over MAX_UPDATE_BYTES is not sent, and the doc stops syncing (diverged)", async () => {
     const hub = new FakeHub();
     const a = await makeProvider(hub);
     const errors = [];
@@ -211,10 +214,63 @@ describe("SocketYProvider", () => {
     a.ydoc.getText("quill").insert(0, "x".repeat(MAX_UPDATE_BYTES + 10));
     await tick(30);
     expect(hub.received).toHaveLength(0);
-    expect(errors).toEqual(["too_large"]);
-    // Small edits keep flowing.
+    expect(errors).toEqual(["diverged"]);
+    // Later edits build on the unsent one, so they are not sent either,
+    // not even after a reconnect.
     a.ydoc.getText("quill").insert(0, "ok");
+    a.socket.drop();
+    a.socket.reconnect();
     await tick(30);
-    expect(hub.received).toHaveLength(1);
+    expect(hub.received).toHaveLength(0);
+    expect(errors).toEqual(["diverged"]);
+  });
+
+  describe("failed updates", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("a permanent rejection (invalid) is reported once as diverged, with no retry loop", async () => {
+      const hub = new FakeHub();
+      const a = await makeProvider(hub);
+      const errors = [];
+      a.provider.on("error", (e) => errors.push(e.message));
+      hub.failUpdates = "invalid";
+      a.ydoc.getText("quill").insert(0, "x");
+      await tick(100);
+      expect(errors).toEqual(["diverged"]);
+      expect(hub.events.filter((e) => e === "doc:open")).toHaveLength(1);
+    });
+
+    it("a transient failure resyncs with exponential backoff and recovers", async () => {
+      vi.useFakeTimers();
+      const hub = new FakeHub();
+      const socket = hub.socket();
+      const ydoc = new Y.Doc();
+      const provider = new SocketYProvider(socket, DOC, ydoc);
+      const errors = [];
+      provider.on("error", (e) => errors.push(e.message));
+      const connecting = provider.connect();
+      await vi.advanceTimersByTimeAsync(10);
+      await connecting;
+
+      hub.failUpdates = "server_error";
+      ydoc.getText("quill").insert(0, "hello");
+      const opens = () => hub.events.filter((e) => e === "doc:open").length;
+      // Retries wait 0.5s, then 1s, then 2s: at ~0.5s, ~1.5s and ~3.5s.
+      await vi.advanceTimersByTimeAsync(1400);
+      expect(opens()).toBe(1 + 1);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(opens()).toBe(1 + 2);
+      // The user hears about it once, not on every retry.
+      expect(errors).toEqual(["server_error"]);
+
+      hub.failUpdates = null;
+      await vi.advanceTimersByTimeAsync(2100);
+      expect(text(hub.doc)).toBe("hello");
+      expect(provider.synced).toBe(true);
+      const settled = opens();
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(opens()).toBe(settled);
+      provider.destroy();
+    });
   });
 });

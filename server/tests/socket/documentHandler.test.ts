@@ -317,4 +317,21 @@ describe("documentHandler — removed member (Review Focus 1)", () => {
     await none;
     expect((await emit(B, "doc:update", docId, new Uint8Array([0, 0]))).ok).toBe(false);
   });
+
+  test("doc:open whose load fails → error and the socket is not left in the doc room", async () => {
+    const { A, B, docId } = await setupWithChat();
+    const spy = jest
+      .spyOn(yDocManager, "open")
+      .mockImplementationOnce(async () => {
+        throw new Error("store down");
+      });
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    expect((await emit(B, "doc:open", docId)).ok).toBe(false);
+    spy.mockRestore();
+
+    const a = await openDoc(A, docId);
+    const none = expectNoEvent(B, "doc:update");
+    a.getText("quill").insert(0, "not for B");
+    await none;
+  });
 });

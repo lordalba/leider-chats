@@ -14,6 +14,16 @@ const EMPTY_UPDATE_LENGTH = 2;
 // drop the connection, and the reconnect diff would resend it forever.
 export const MAX_UPDATE_BYTES = 4.5e6;
 
+// Retry delays after a transient failure: 0.5s, 1s, 2s, ... capped at 30s.
+const RETRY_BASE_MS = 500;
+const RETRY_MAX_MS = 30000;
+
+// The server refused the content itself: resending it can never succeed,
+// and later edits build on it, so the doc can't sync any more.
+const PERMANENT_ERRORS = new Set(["invalid", "too_large"]);
+// Not something a retry fixes; the editor closes or asks to log in.
+const FATAL_ERRORS = new Set(["forbidden", "not_found", "unauthenticated"]);
+
 /** Socket.IO hands binary over as ArrayBuffer (browser) or Buffer (node). */
 function toUint8(data) {
   if (data instanceof Uint8Array) return new Uint8Array(data);
@@ -42,20 +52,23 @@ export class SocketYProvider {
     this.synced = false;
     this.destroyed = false;
     this.connectSeq = 0;
+    // Set once a local change could not be synced; nothing is sent after that.
+    this.diverged = false;
+    this.retries = 0;
+    this.retryTimer = null;
     this.listeners = { synced: new Set(), error: new Set() };
 
     this.onDocUpdate = (update, origin) => {
-      if (origin === this || !this.synced || !this.socket.connected) return;
+      if (origin === this || this.diverged || !this.synced || !this.socket.connected) return;
       if (update.byteLength > MAX_UPDATE_BYTES) {
-        this.emitLocal("error", new Error("too_large"));
+        this.markDiverged();
         return;
       }
-      emitWithAck(this.socket, "doc:update", this.docId, update).catch((error) => {
-        if (this.destroyed) return;
-        // A lost update would otherwise stay unsent until the next reconnect.
-        console.warn("doc:update failed, resyncing:", error.message);
-        this.resync();
-      });
+      const seq = this.connectSeq;
+      emitWithAck(this.socket, "doc:update", this.docId, update).then(
+        () => this.onSent(seq),
+        (error) => this.onFailed(error, seq)
+      );
     };
 
     this.onAwarenessUpdate = ({ added, updated, removed }, origin) => {
@@ -78,7 +91,11 @@ export class SocketYProvider {
       applyAwarenessUpdate(this.awareness, toUint8(payload.update), this);
     };
 
-    this.onConnect = () => this.resync();
+    this.onConnect = () => {
+      // A fresh connection: start over without waiting out an old backoff.
+      this.retries = 0;
+      this.resync();
+    };
 
     this.onDisconnect = () => {
       this.synced = false;
@@ -110,14 +127,59 @@ export class SocketYProvider {
   }
 
   resync() {
+    clearTimeout(this.retryTimer);
+    this.retryTimer = null;
     this.synced = false;
-    this.connect().catch((error) => {
-      if (!this.destroyed) this.emitLocal("error", error);
-    });
+    const seq = this.connectSeq + 1;
+    this.connect().catch((error) => this.onFailed(error, seq));
+  }
+
+  onSent(seq) {
+    if (seq === this.connectSeq) this.retries = 0;
+  }
+
+  /** A doc:open or doc:update failed: retry with backoff, or give up for good. */
+  onFailed(error, seq) {
+    if (this.destroyed || seq !== this.connectSeq || this.diverged) return;
+    const code = error && error.message;
+    if (PERMANENT_ERRORS.has(code)) {
+      this.markDiverged();
+      return;
+    }
+    if (FATAL_ERRORS.has(code)) {
+      this.synced = false;
+      this.emitLocal("error", error);
+      return;
+    }
+    // Tell the user once per outage, not on every retry.
+    if (this.retries === 0) this.emitLocal("error", error);
+    console.warn("doc sync failed, retrying:", code);
+    const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** this.retries);
+    this.retries++;
+    this.synced = false;
+    clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (!this.destroyed && this.socket.connected) this.resync();
+    }, delay);
+  }
+
+  /**
+   * A local change can't reach the server. Every later edit depends on it,
+   * so they could never be merged either: stop sending and let the editor
+   * ask for a reload rather than drop edits silently.
+   */
+  markDiverged() {
+    if (this.diverged) return;
+    this.diverged = true;
+    this.synced = false;
+    clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+    this.emitLocal("error", new Error("diverged"));
   }
 
   async connect() {
-    if (this.destroyed) return;
+    if (this.destroyed || this.diverged) return;
     const seq = ++this.connectSeq;
     const { update } = await emitWithAck(this.socket, "doc:open", this.docId);
     // A newer connect (or destroy) superseded this one.
@@ -132,13 +194,16 @@ export class SocketYProvider {
     // No await between the diff and synced=true: any later local edit is
     // emitted live, every earlier one is in the diff.
     if (missing.length > MAX_UPDATE_BYTES) {
-      this.emitLocal("error", new Error("too_large"));
-    } else if (missing.length > EMPTY_UPDATE_LENGTH) {
-      emitWithAck(this.socket, "doc:update", this.docId, missing).catch((error) => {
-        if (this.destroyed || seq !== this.connectSeq) return;
-        console.warn("doc:update (resync diff) failed, retrying:", error.message);
-        this.resync();
-      });
+      this.markDiverged();
+      return;
+    }
+    if (missing.length > EMPTY_UPDATE_LENGTH) {
+      emitWithAck(this.socket, "doc:update", this.docId, missing).then(
+        () => this.onSent(seq),
+        (error) => this.onFailed(error, seq)
+      );
+    } else {
+      this.retries = 0;
     }
     this.synced = true;
 
@@ -158,6 +223,8 @@ export class SocketYProvider {
     removeAwarenessStates(this.awareness, [this.ydoc.clientID], "destroy");
     this.destroyed = true;
     this.synced = false;
+    clearTimeout(this.retryTimer);
+    this.retryTimer = null;
     this.connectSeq++;
     this.ydoc.off("update", this.onDocUpdate);
     this.awareness.off("update", this.onAwarenessUpdate);

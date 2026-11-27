@@ -26,18 +26,25 @@
           <span :style="{ width: w + 'px', height: w + 'px' }"></span>
         </button>
       </div>
-      <b-button size="sm" variant="outline-secondary" :disabled="!myLastStroke" @click="undo">
+      <b-button
+        size="sm"
+        variant="outline-secondary"
+        :disabled="!opened || !myLastStroke"
+        @click="undo"
+      >
         Undo my last stroke
       </b-button>
       <b-button
         v-if="canClear"
         size="sm"
         variant="outline-danger"
+        :disabled="!opened"
         @click="confirmingClear = true"
       >
         Clear board
       </b-button>
       <span v-if="status" class="wb-status">{{ status }}</span>
+      <b-button v-if="openFailed" size="sm" variant="link" @click="open">Retry</b-button>
     </div>
 
     <div ref="board" class="wb-board">
@@ -118,6 +125,11 @@ export default {
       // (the stroke list itself is kept non-reactive for drawing speed).
       strokesVersion: 0,
       learnedUserId: null,
+      // True while this connection has the board open (joined its room).
+      opened: false,
+      // True once any snapshot has loaded; drawing offline is allowed after that.
+      loaded: false,
+      openFailed: false,
     };
   },
   computed: {
@@ -145,6 +157,8 @@ export default {
     this.drawingTimer = null;
     this.overlayFrame = null;
     this.openSeq = 0;
+    // Pending stroke ids a clear wiped locally; their late acks must not re-add them.
+    this.discarded = new Set();
   },
   mounted() {
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -186,21 +200,30 @@ export default {
     // (Re)open: on mount and after every reconnect (rooms are per connection).
     async open() {
       const seq = ++this.openSeq;
+      this.openFailed = false;
       try {
         const { strokes } = await emitWithAck(this.socket, "wb:open", this.whiteboardId);
         if (seq !== this.openSeq) return;
-        const pending = this.strokes.filter((s) => s.pending);
         const ids = new Set(strokes.map((s) => s.id));
-        this.strokes = strokes.concat(pending.filter((s) => !ids.has(s.id)));
+        const unsent = this.strokes.filter((s) => s.pending && !ids.has(s.id));
+        this.strokes = strokes.concat(unsent);
         this.strokesVersion++;
+        this.opened = true;
+        this.loaded = true;
         this.status = "";
         this.redrawBase();
+        // Strokes drawn offline or whose ack was lost; the server dedups by id.
+        unsent.forEach((stroke) => this.sendStroke(stroke));
       } catch (error) {
         if (seq !== this.openSeq) return;
+        this.openFailed = true;
         this.onError(error);
       }
     },
     onDisconnect() {
+      // Rooms are per connection: nothing may be sent until wb:open runs again,
+      // or socket.io's offline buffer would deliver it before the re-join.
+      this.opened = false;
       this.status = "Offline — reconnecting…";
     },
     onError(error) {
@@ -258,7 +281,7 @@ export default {
     },
     onPointerDown(event) {
       if (event.button !== undefined && event.button !== 0) return;
-      if (!this.socket || this.status === "Loading…") return;
+      if (!this.socket || !this.loaded) return;
       event.preventDefault();
       this.$refs.overlay.setPointerCapture(event.pointerId);
       this.current = {
@@ -310,6 +333,11 @@ export default {
       this.strokes.push(local);
       this.strokesVersion++;
       drawStroke(this.$refs.base.getContext("2d"), local, this.cssWidth, this.cssHeight);
+      // Offline: stays pending, and the next wb:open sends it.
+      if (this.opened) this.sendStroke(local);
+    },
+    async sendStroke(local) {
+      const { id, color, width, points } = local;
       try {
         const stored = await emitWithAck(this.socket, "wb:stroke", this.whiteboardId, {
           id,
@@ -318,8 +346,21 @@ export default {
           points,
         });
         this.learnedUserId = this.learnedUserId || String(stored.userId);
+        if (this.discarded.delete(id)) {
+          // A clear wiped it while in flight; it may have been stored after
+          // the clear, so let a fresh snapshot decide.
+          if (this.opened) this.open();
+          return;
+        }
         this.replaceStroke(id, stored);
       } catch (error) {
+        if (this.discarded.delete(id)) return;
+        if (error.message === "timeout" || !this.opened) {
+          // The server may have stored it (the ack was lost): keep it pending.
+          // A reconnect reopens by itself; otherwise reopen now to settle it.
+          if (this.opened) this.open();
+          return;
+        }
         this.removeStroke(id);
         this.$toast.error(
           error.message === "board_full"
@@ -343,7 +384,7 @@ export default {
     },
     async undo() {
       const stroke = this.myLastStroke;
-      if (!stroke || stroke.pending) return;
+      if (!this.opened || !stroke || stroke.pending) return;
       try {
         await emitWithAck(this.socket, "wb:undo", this.whiteboardId, stroke.id);
         this.removeStroke(stroke.id);
@@ -354,6 +395,7 @@ export default {
     },
     async clearBoard() {
       this.confirmingClear = false;
+      if (!this.opened) return;
       try {
         await emitWithAck(this.socket, "wb:clear", this.whiteboardId);
         this.onCleared({ whiteboardId: this.whiteboardId });
@@ -381,8 +423,13 @@ export default {
     },
     onCleared(payload) {
       if (!this.isMine(payload)) return;
-      // Keep strokes still awaiting their ack; the server stored them after the clear or will reject them.
-      this.strokes = this.strokes.filter((s) => s.pending);
+      // Pending strokes go too: one stored before the clear was deleted by it.
+      // Their acks then trigger a fresh wb:open, which brings back any that
+      // were stored after the clear.
+      this.strokes.forEach((s) => {
+        if (s.pending) this.discarded.add(s.id);
+      });
+      this.strokes = [];
       this.strokesVersion++;
       this.live.clear();
       this.redrawBase();
