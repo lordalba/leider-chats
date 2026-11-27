@@ -1,83 +1,53 @@
 <template>
   <header class="header">
-    <div class="logo" style="text">Leider chats</div>
-    <nav class="nav">
+    <router-link to="/" class="logo">Leider chats</router-link>
+    <nav class="nav" aria-label="Main">
       <ul>
-        <router-link to="/" class="menu-item">
-          <li>Home</li>
-        </router-link>
-
-        <router-link
-          v-if="$store.state.connectedUser"
-          to="/friends"
-          class="menu-item"
-        >
-          <li>Projects</li>
-        </router-link>
-
-        <router-link
-          v-if="$store.state.connectedUser"
-          to="/friends"
-          class="menu-item"
-        >
-          <li>Friends</li>
-        </router-link>
-
-        <router-link to="/about" class="menu-item">
-          <li>About us</li>
-        </router-link>
-
-        <router-link to="/workspaces" class="menu-item">
-          <li>Workspaces</li>
-        </router-link>
-
-        <router-link
-          v-if="$store.state.connectedUser"
-          to="/profile"
-          class="menu-item"
-        >
-          <li>Profile</li>
-        </router-link>
+        <li><router-link to="/" exact class="menu-item">Home</router-link></li>
+        <li v-if="loggedIn">
+          <router-link to="/chatrooms" class="menu-item">Chats</router-link>
+        </li>
+        <li v-if="loggedIn">
+          <router-link to="/workspaces" class="menu-item">Workspaces</router-link>
+        </li>
+        <li v-if="loggedIn">
+          <router-link to="/friends" class="menu-item">Friends</router-link>
+        </li>
+        <li v-if="loggedIn">
+          <router-link to="/profile" class="menu-item">Profile</router-link>
+        </li>
+        <li><router-link to="/about" class="menu-item">About us</router-link></li>
       </ul>
     </nav>
-    <div class="icons">
-      <i
-        v-if="$store.state.connectedUser"
-        class="fa-solid fa-user-slash"
-        @mousedown="disconnect()"
-      ></i>
-      <router-link v-else to="/login" class="icon-menu-item">
-        <i class="fa-solid fa-right-to-bracket"></i>
+    <div class="header-actions">
+      <button v-if="loggedIn" type="button" class="header-action" @click="disconnect">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log out
+      </button>
+      <router-link v-else to="/login" class="header-action">
+        <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Log in
       </router-link>
-
-      <i class="fas fa-search"></i>
-      <i class="fas fa-shopping-cart"></i>
     </div>
   </header>
 </template>
 
 <script>
 import { mapActions } from "vuex";
-import Swal from "sweetalert2";
 import { clearSession } from "@/auth/session";
 
 export default {
   name: "HeaderComponent",
-  data() {
-    return {};
+  computed: {
+    loggedIn() {
+      return Boolean(this.$store.state.connectedUser);
+    },
   },
   methods: {
     ...mapActions(["setConnectedUser"]),
     disconnect() {
       clearSession();
 
-      this.$router.push("/");
-      Swal.fire({
-        icon: "success",
-        title: "good job!",
-        text: "Signed Off successfuly!",
-        footer: '<a href="shorturl.at/gwRUY">why is your mother in a pita?</a>',
-      });
+      this.$router.push("/").catch(() => {});
+      this.$toast.info("You're logged out");
     },
   },
 };
@@ -94,15 +64,15 @@ export default {
 .logo {
   font-weight: bold;
   font-size: 24px;
+  color: inherit;
+  text-decoration: none;
 }
 .nav ul {
   list-style-type: none;
   display: flex;
-  gap: 35px;
-}
-
-.nav ul li:hover {
-  transform: scale(1.06);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
 }
 
 .menu-item {
@@ -127,9 +97,16 @@ export default {
   transition: width 0.3s ease 0s, left 0.3s ease 0s;
   width: 0;
 }
-.menu-item:hover:after {
+.menu-item:hover:after,
+.menu-item.router-link-active:after {
   width: 100%;
   left: 0;
+}
+.menu-item.router-link-active {
+  color: var(--ws-accent-strong);
+}
+.menu-item.router-link-active:after {
+  background: var(--ws-accent);
 }
 @media screen and (max-height: 300px) {
   ul {
@@ -137,12 +114,26 @@ export default {
   }
 }
 
-.icon-menu-item {
-  color: #000000;
-}
-
-.icons i {
-  margin-left: 25px;
+.header-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--ws-border);
+  border-radius: var(--ws-radius);
+  background: var(--ws-surface);
+  color: var(--ws-text);
+  font-size: 0.9rem;
+  text-decoration: none;
   cursor: pointer;
+}
+.header-action:hover {
+  border-color: var(--ws-accent);
+  color: var(--ws-accent-strong);
+}
+.header-action:focus-visible,
+.menu-item:focus-visible {
+  outline: none;
+  box-shadow: var(--ws-focus);
 }
 </style>

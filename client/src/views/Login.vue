@@ -74,17 +74,11 @@ export default {
         const connectedUser = await fetchUserData();
         store.dispatch("setConnectedUser", connectedUser.data);
 
-        Swal.fire({
-          icon: "success",
-          title: "good job!",
-          text: "Logged in successful!",
-          footer:
-            '<a href="shorturl.at/gwRUY">why is your mother in a pita?</a>',
-        });
+        this.$toast.success(`Welcome back, ${connectedUser.data.username}`);
 
         this.$store.dispatch("socket/initializeSocket");
 
-        this.$router.push("/"); // Navigate to login page
+        this.$router.push("/");
       } catch (error) {
         alert(error.message);
       }
