@@ -84,6 +84,11 @@ export default {
       type: Object,
       default: null,
     },
+    // Title preset for a new task (from the board's quick add).
+    presetTitle: {
+      type: String,
+      default: "",
+    },
     // Status preset for a new task.
     status: {
       type: String,
@@ -146,7 +151,7 @@ export default {
   methods: {
     resetForm() {
       const task = this.editing ? this.task : null;
-      this.title = task ? task.title || "" : "";
+      this.title = task ? task.title || "" : this.presetTitle;
       this.description = task ? task.description || "" : "";
       this.assignedTo = task
         ? (task.assignedTo || [])

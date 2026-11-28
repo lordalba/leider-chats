@@ -1,6 +1,6 @@
 <template>
   <div class="workspace-main">
-    <div v-if="detail">
+    <div v-if="detail" class="workspace-detail">
       <WorkspaceHeader
         :detail="detail"
         :members="members"
@@ -322,6 +322,12 @@ export default {
   padding: 20px;
   min-width: 0;
   overflow-y: auto;
+}
+/* Fills the pane so the task columns can run its full height. */
+.workspace-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 .items-tab {
   display: flex;

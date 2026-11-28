@@ -134,3 +134,25 @@ export function isOverdue(task, now = new Date()) {
   const due = dueDateToInput(task.dueDate);
   return Boolean(due) && due < localDay(now);
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The card's due chip: { text, tone } or null. Due dates are calendar days
+ * (see dueDateToInput), compared with the local day of `now`. A done task's
+ * date is shown plainly, never as overdue.
+ */
+export function dueLabel(dueDate, now = new Date(), { done = false } = {}) {
+  const due = dueDateToInput(dueDate);
+  if (!due) return null;
+  const [year, month, day] = due.split("-").map(Number);
+  const today = localDay(now);
+  const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const plain =
+    `${MONTHS[month - 1]} ${day}` + (year !== now.getFullYear() ? `, ${year}` : "");
+  if (done) return { text: plain, tone: "none" };
+  if (due === today) return { text: "Today", tone: "soon" };
+  if (due === localDay(tomorrowDate)) return { text: "Tomorrow", tone: "soon" };
+  if (due < today) return { text: `Overdue · ${plain}`, tone: "overdue" };
+  return { text: plain, tone: "none" };
+}

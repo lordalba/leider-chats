@@ -25,10 +25,35 @@
           @drag-start="draggingId = task._id"
           @drag-end="onDragEnd"
         />
+        <p v-if="!columns[status].length" class="task-column-empty">Drop tasks here</p>
+        <form
+          v-if="quickStatus === status"
+          class="quick-add"
+          @submit.prevent="quickAdd"
+          @keydown.esc.stop="closeQuickAdd"
+        >
+          <input
+            ref="quickInput"
+            v-model="quickTitle"
+            class="form-control form-control-sm"
+            maxlength="200"
+            placeholder="Task title, then Enter"
+            :aria-label="`New task in ${labels[status]}`"
+            :disabled="quickBusy"
+          />
+          <div class="quick-add-actions">
+            <button type="button" class="btn btn-link btn-sm" @click="moreOptions(status)">
+              More options
+            </button>
+            <button type="button" class="btn btn-link btn-sm quick-close" @click="closeQuickAdd">
+              Done
+            </button>
+          </div>
+        </form>
+        <button v-else type="button" class="add-task" @click="openQuickAdd(status)">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i> Add a task
+        </button>
       </div>
-      <b-button variant="link" size="sm" class="add-task" @click="openCreate(status)">
-        + Add task
-      </b-button>
     </div>
 
     <TaskEditModal
@@ -36,6 +61,7 @@
       :editing="Boolean(editingId)"
       :task="editingTask"
       :status="createStatus"
+      :presetTitle="presetTitle"
       :workspaceId="workspaceId"
       :participants="participants"
       :socket="socket"
@@ -88,6 +114,11 @@ export default {
       modalVisible: false,
       editingId: null,
       createStatus: STATUSES[0],
+      presetTitle: "",
+      // Inline quick add: the column it's open in, its text, in flight.
+      quickStatus: null,
+      quickTitle: "",
+      quickBusy: false,
     };
   },
   computed: {
@@ -120,10 +151,55 @@ export default {
     if (this.modalVisible && this.editingId) this.$emit("focus", null);
   },
   methods: {
-    openCreate(status) {
+    openCreate(status, title = "") {
       this.editingId = null;
       this.createStatus = status;
+      this.presetTitle = title;
       this.modalVisible = true;
+    },
+    openQuickAdd(status) {
+      this.quickStatus = status;
+      this.quickTitle = "";
+      this.$nextTick(() => this.focusQuickInput());
+    },
+    focusQuickInput() {
+      const input = this.$refs.quickInput;
+      const el = Array.isArray(input) ? input[0] : input;
+      if (el) el.focus();
+    },
+    closeQuickAdd() {
+      this.quickStatus = null;
+      this.quickTitle = "";
+    },
+    moreOptions(status) {
+      const title = this.quickTitle.trim();
+      this.closeQuickAdd();
+      this.openCreate(status, title);
+    },
+    // Enter creates the task and keeps the input open for the next one.
+    async quickAdd() {
+      const title = this.quickTitle.trim();
+      const status = this.quickStatus;
+      if (!title || this.quickBusy) return;
+      if (!this.socket) {
+        this.$toast.error(taskErrorMessage("server_error"));
+        return;
+      }
+      this.quickBusy = true;
+      try {
+        const item = await emitWithAck(this.socket, "task:create", this.workspaceId, {
+          title,
+          status,
+        });
+        this.$emit("item-event", { action: "created", item });
+        if (this.quickStatus === status) this.quickTitle = "";
+      } catch (error) {
+        console.error("task:create failed:", error);
+        this.$toast.error(taskErrorMessage(error.message));
+      } finally {
+        this.quickBusy = false;
+        this.$nextTick(() => this.focusQuickInput());
+      }
     },
     openEdit(task) {
       this.editingId = String(task._id);
@@ -206,21 +282,26 @@ export default {
 
 <style scoped>
 .task-board {
+  flex: 1;
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  gap: var(--ws-space-3);
+  align-items: stretch;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: var(--ws-space-2);
 }
 .task-column {
   flex: 1 0 220px;
-  background: #f4f5f7;
-  border-radius: 8px;
-  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--ws-surface-muted);
+  border-radius: var(--ws-radius);
+  padding: var(--ws-space-2);
   border: 2px dashed transparent;
 }
 .task-column.drop-target {
-  border-color: #45815c;
+  border-color: var(--ws-accent);
+  background: var(--ws-accent-soft);
 }
 .task-column-header {
   display: flex;
@@ -229,14 +310,50 @@ export default {
   padding: 4px 2px 8px;
 }
 .task-count {
-  color: #888;
+  color: var(--ws-text-muted);
   font-weight: normal;
 }
+/* The body grows to the column's full height and is the drop zone. */
 .task-column-body {
-  min-height: 40px;
+  flex: 1;
+  min-height: 60px;
+}
+.task-column-empty {
+  margin: 0 0 var(--ws-space-2);
+  padding: var(--ws-space-4) var(--ws-space-2);
+  border: 1px dashed var(--ws-border);
+  border-radius: var(--ws-radius-sm);
+  color: var(--ws-text-muted);
+  font-size: 13px;
+  text-align: center;
 }
 .add-task {
-  color: #45815c;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--ws-radius-sm);
+  background: none;
+  color: var(--ws-text-muted);
+  font-size: 14px;
+  text-align: left;
+}
+.add-task:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ws-text);
+}
+.quick-add-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+.quick-add-actions .btn {
   padding-left: 2px;
+  padding-right: 2px;
+}
+.quick-close {
+  color: var(--ws-text-muted) !important;
 }
 </style>

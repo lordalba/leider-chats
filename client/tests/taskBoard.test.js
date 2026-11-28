@@ -12,6 +12,7 @@ import {
   isOverdue,
   statusOptions,
   appendOrder,
+  dueLabel,
 } from "../src/workspaces/taskBoard.js";
 
 const t = (id, status, order, extra = {}) => ({
@@ -207,5 +208,52 @@ describe("appendOrder", () => {
 
   it("treats a missing column as empty", () => {
     expect(Number.isFinite(appendOrder({}, "todo", "x"))).toBe(true);
+  });
+});
+
+describe("dueLabel", () => {
+  // Late evening local time: a UTC-shift bug would turn today into tomorrow.
+  const now = new Date(2026, 10, 27, 23, 30);
+
+  it("is null without a due date", () => {
+    expect(dueLabel(null, now)).toBe(null);
+    expect(dueLabel("", now)).toBe(null);
+    expect(dueLabel("not a date", now)).toBe(null);
+  });
+
+  it("says Today for today's date", () => {
+    expect(dueLabel("2026-11-27T00:00:00.000Z", now)).toEqual({ text: "Today", tone: "soon" });
+  });
+
+  it("says Tomorrow for tomorrow's date", () => {
+    expect(dueLabel("2026-11-28T00:00:00.000Z", now)).toEqual({ text: "Tomorrow", tone: "soon" });
+  });
+
+  it("marks a past date overdue", () => {
+    expect(dueLabel("2026-11-20T00:00:00.000Z", now)).toEqual({
+      text: "Overdue · Nov 20",
+      tone: "overdue",
+    });
+  });
+
+  it("shows a later date this year without the year", () => {
+    expect(dueLabel("2026-12-01T00:00:00.000Z", now)).toEqual({ text: "Dec 1", tone: "none" });
+  });
+
+  it("adds the year when it differs", () => {
+    expect(dueLabel("2027-01-03T00:00:00.000Z", now)).toEqual({ text: "Jan 3, 2027", tone: "none" });
+  });
+
+  it("handles a month rollover for Tomorrow", () => {
+    const lastDay = new Date(2026, 10, 30, 22, 0);
+    expect(dueLabel("2026-12-01T00:00:00.000Z", lastDay)).toEqual({ text: "Tomorrow", tone: "soon" });
+  });
+});
+
+describe("dueLabel for finished tasks", () => {
+  const now = new Date(2026, 10, 27, 23, 30);
+  it("never calls a done task overdue or soon", () => {
+    expect(dueLabel("2026-11-20T00:00:00.000Z", now, { done: true })).toEqual({ text: "Nov 20", tone: "none" });
+    expect(dueLabel("2026-11-27T00:00:00.000Z", now, { done: true })).toEqual({ text: "Nov 27", tone: "none" });
   });
 });
