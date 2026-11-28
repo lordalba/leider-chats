@@ -8,6 +8,10 @@ export const OnlineUserService = {
     onlineUsers[userId].push(socketId);
   },
 
+  /**
+   * Removes one socket. Returns the user's id only when that was their last
+   * socket (they just went offline); returns null while other tabs remain.
+   */
   removeUserSocket(socketId: string): string | null {
     for (const userId in onlineUsers) {
       const socketIndex = onlineUsers[userId].indexOf(socketId);
@@ -15,9 +19,9 @@ export const OnlineUserService = {
         onlineUsers[userId].splice(socketIndex, 1);
         if (onlineUsers[userId].length === 0) {
           delete onlineUsers[userId];
+          return userId;
         }
-        
-        return userId;
+        return null;
       }
     }
     return null;
