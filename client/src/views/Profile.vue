@@ -171,6 +171,11 @@ export default {
         });
       } catch (error) {
         console.error("Error while sending updated profile data: ", error);
+        Swal.fire({
+          icon: "error",
+          title: "Couldn't save changes",
+          text: error.response?.data?.message || "Something went wrong. Please try again.",
+        });
       }
     },
   },

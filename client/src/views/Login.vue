@@ -8,8 +8,12 @@
         <i class="fas fa-user"></i>
         <input
           type="text"
-          placeholder="Enter your email"
-          v-model="email"
+          placeholder="Username or email"
+          aria-label="Username or email"
+          v-model="identifier"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
           required
         />
       </div>
@@ -17,19 +21,31 @@
       <div class="input-group">
         <i class="fas fa-lock"></i>
         <input
-          type="password"
+          :type="showPassword ? 'text' : 'password'"
           placeholder="Enter your password"
+          aria-label="Password"
           v-model="password"
+          autocomplete="current-password"
           required
         />
+        <button
+          type="button"
+          class="show-password"
+          :aria-label="showPassword ? 'Hide password' : 'Show password'"
+          @click="showPassword = !showPassword"
+        >
+          <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+        </button>
       </div>
 
-      <button type="submit">Login In</button>
+      <button type="submit" class="submit-btn" :disabled="loading">
+        {{ loading ? "Logging in..." : "Log In" }}
+      </button>
     </form>
 
     <p class="signup-text">
       Don’t have an account?
-      <router-link to="/register">Signup Now</router-link>
+      <router-link to="/register">Sign up now</router-link>
     </p>
   </div>
 </template>
@@ -38,41 +54,44 @@
 import { loginUser } from "@/api/AuthService";
 import { fetchUserData } from "@/api/PersonalService";
 import Swal from "sweetalert2";
-import { mapActions } from "vuex";
-import store from "@/store/store";
 
 export default {
   name: "logIn",
   data() {
     return {
-      email: "",
+      identifier: "",
       password: "",
+      showPassword: false,
+      loading: false,
     };
   },
   methods: {
-    ...mapActions(["setConnectedUser"]),
     async handleLogin() {
-      if (!this.email || !this.password) {
-        // Show SweetAlert popup
+      if (this.loading) return;
+      const identifier = this.identifier.trim();
+      if (!identifier || !this.password) {
         Swal.fire({
           icon: "warning",
           title: "Oops...",
-          text: "All fields must be filled before creating an account.",
+          text: "Please enter your username or email and your password.",
         });
-        return; // Block form submission
+        return;
       }
 
+      this.loading = true;
       try {
-        const userData = {
-          email: this.email,
-          password: this.password,
-        };
+        const result = await loginUser({ identifier, password: this.password });
+        localStorage.setItem("token", result.token);
 
-        const result = await loginUser(userData);
-        localStorage.setItem("token", result.token); // Save the token in localStorage
-
-        const connectedUser = await fetchUserData();
-        store.dispatch("setConnectedUser", connectedUser.data);
+        let connectedUser;
+        try {
+          connectedUser = await fetchUserData();
+        } catch (error) {
+          // Don't leave a token behind for a login that didn't finish.
+          localStorage.removeItem("token");
+          throw new Error("Logged in, but couldn't load your account. Please try again.");
+        }
+        this.$store.dispatch("setConnectedUser", connectedUser.data);
 
         this.$toast.success(`Welcome back, ${connectedUser.data.username}`);
 
@@ -80,7 +99,13 @@ export default {
 
         this.$router.push("/chatrooms");
       } catch (error) {
-        alert(error.message);
+        Swal.fire({
+          icon: "error",
+          title: "Login failed",
+          text: error.message,
+        });
+      } finally {
+        this.loading = false;
       }
     },
   },
@@ -118,13 +143,28 @@ p {
 }
 input {
   width: 100%;
-  padding: 10px 10px 10px 35px;
+  padding: 10px 40px 10px 35px;
   border: 1px solid #ddd;
   border-radius: 5px;
   font-size: 16px;
   outline: none;
 }
-button {
+.show-password {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 6px;
+}
+.show-password i {
+  position: static;
+  transform: none;
+}
+.submit-btn {
   width: 100%;
   padding: 12px;
   font-size: 16px;
@@ -135,8 +175,12 @@ button {
   cursor: pointer;
   transition: background-color 0.3s;
 }
-button:hover {
+.submit-btn:hover:not(:disabled) {
   background-color: #30924c;
+}
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
 }
 .signup-text {
   margin-top: 20px;

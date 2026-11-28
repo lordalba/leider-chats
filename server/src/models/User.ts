@@ -8,8 +8,9 @@ const userSchema = new Schema<IUser>({
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   friendRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   age: { type: Number, required: true },
-  profession: { type: String, required: true },
-  location: { type: String, required: true },
+  // Optional on the sign-up form, so they may be empty.
+  profession: { type: String, default: "" },
+  location: { type: String, default: "" },
   aboutMe: { type: String, required: false },
   skills: [{ type: String, required: false }],
   profilePictureUrl: { type: String, required: false },

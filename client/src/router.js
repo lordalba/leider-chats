@@ -2,6 +2,7 @@ import Login from "./views/Login.vue";
 import VueRouter from "vue-router";
 import { pageTitle } from "./pageTitle";
 import { entryPath } from "./entryRoute";
+import store from "./store/store";
 import Register from "./views/Register.vue";
 import FriendsPage from "./views/FriendsPage.vue";
 import Profile from "./views/Profile.vue";
@@ -89,8 +90,15 @@ const router = new VueRouter({
   ],
 });
 
+// Pages a logged-out visitor may open; every other page needs a user.
+const PUBLIC_PATHS = ["/login", "/register", "/about"];
+
 router.beforeEach((to, from, next) => {
   document.title = pageTitle(to.meta);
+  if (!store.state.connectedUser && !PUBLIC_PATHS.includes(to.path)) {
+    next("/login");
+    return;
+  }
   next();
 });
 

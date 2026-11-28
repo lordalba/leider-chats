@@ -4,6 +4,9 @@ import { BootstrapVue, IconsPlugin } from 'bootstrap-vue';
 import VueSweetalert2 from 'vue-sweetalert2';
 import store from './store/store.js'
 import router from './router.js';
+import { restoreSession } from './auth/restoreSession';
+import { clearSession } from './auth/session';
+import { fetchUserData } from './api/PersonalService';
 import VueRouter from 'vue-router';
 import VueHead from 'vue-head'
 import '@fortawesome/fontawesome-free/css/all.css';
@@ -38,8 +41,20 @@ Vue.use(VueRouter);
 
 Vue.use(VueSweetalert2);
 
-new Vue({
-  render: h => h(App),  
-  router,
-  store
-}).$mount('#app')
+// Restore the logged-in user from the stored token before the first render,
+// so a page refresh keeps the user logged in (views read connectedUser).
+restoreSession({
+  token: localStorage.getItem("token"),
+  fetchUser: fetchUserData,
+  setUser: (user) => store.dispatch("setConnectedUser", user),
+  connect: () => store.dispatch("socket/initializeSocket"),
+  clear: clearSession,
+})
+  .catch((error) => console.error("Session restore failed:", error))
+  .finally(() => {
+    new Vue({
+      render: h => h(App),
+      router,
+      store
+    }).$mount('#app')
+  });
