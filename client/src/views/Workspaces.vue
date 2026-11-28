@@ -57,6 +57,8 @@ export default {
       showCreate: false,
       // Set while I delete a workspace: its workspace:revoked is my own doing.
       deletingId: null,
+      // What I last told the server I have open; re-sent after a re-join.
+      currentFocus: null,
       members: [],
       // Workspace this socket has joined (and must leave on switch/destroy).
       joinedId: null,
@@ -130,6 +132,7 @@ export default {
       this.detail = null;
       this.members = [];
       this.pendingEvents = null;
+      this.currentFocus = null;
       this.loadingDetail = !!id;
       if (!id) return;
       try {
@@ -168,6 +171,10 @@ export default {
       this.pendingEvents = null;
       this.detail = response.data;
       buffered.forEach((event) => this.applyItemEvent(event));
+      // A re-join (reconnect) starts with no focus on the server; say again
+      // what I have open. On a first open this is null and the content pane
+      // sends it once the detail is on screen.
+      if (this.currentFocus) this.setFocus(this.currentFocus);
     },
     // Resolves "ok" | "failed" (snapshot still worth loading) | "stale" |
     // "denied" (access refused or session expired: stop).
@@ -208,8 +215,9 @@ export default {
       this.detail = null;
       this.members = [];
       this.$toast.error(REVOKED_MESSAGE);
+      // Replace: Back must not return to the dead workspace (and bounce again).
       if (this.workspaceId) {
-        this.$router.push("/workspaces").catch(() => {});
+        this.$router.replace("/workspaces").catch(() => {});
       }
       this.loadList();
     },
@@ -234,7 +242,7 @@ export default {
       }
       this.joinedId = null; // the server already took us out of its rooms
       this.$toast.success("Workspace deleted");
-      if (this.workspaceId === id) this.$router.push("/workspaces").catch(() => {});
+      if (this.workspaceId === id) this.$router.replace("/workspaces").catch(() => {});
       this.loadList();
     },
     onCreated(workspace) {
@@ -242,6 +250,7 @@ export default {
       this.$router.push(workspacePath({ workspaceId: String(workspace._id) })).catch(() => {});
     },
     setFocus(focus) {
+      this.currentFocus = focus || null;
       if (!this.socket || !this.joinedId) return;
       emitWithAck(this.socket, "workspace:focus", this.joinedId, focus).catch(
         (error) => console.error("workspace:focus failed:", error)

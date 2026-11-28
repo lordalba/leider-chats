@@ -13,6 +13,7 @@ import {
   statusOptions,
   appendOrder,
   dueLabel,
+  statusMove,
 } from "../src/workspaces/taskBoard.js";
 
 const t = (id, status, order, extra = {}) => ({
@@ -255,5 +256,24 @@ describe("dueLabel for finished tasks", () => {
   it("never calls a done task overdue or soon", () => {
     expect(dueLabel("2026-11-20T00:00:00.000Z", now, { done: true })).toEqual({ text: "Nov 20", tone: "none" });
     expect(dueLabel("2026-11-27T00:00:00.000Z", now, { done: true })).toEqual({ text: "Nov 27", tone: "none" });
+  });
+});
+
+describe("statusMove", () => {
+  it("moves when the user picked a different status than the one opened", () => {
+    expect(statusMove("todo", "done")).toBe("done");
+  });
+
+  it("does nothing when the user left the status alone", () => {
+    expect(statusMove("todo", "todo")).toBe(null);
+  });
+
+  it("does not revert someone else's move made while the modal was open", () => {
+    // Opened as todo, the user kept todo; meanwhile the live task became done.
+    expect(statusMove("todo", "todo", "done")).toBe(null);
+  });
+
+  it("does nothing when the chosen status is already the live one", () => {
+    expect(statusMove("todo", "done", "done")).toBe(null);
   });
 });

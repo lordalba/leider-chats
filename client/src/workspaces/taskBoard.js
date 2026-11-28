@@ -52,6 +52,16 @@ export function dropOrder(column, draggedId, index) {
   return orderBetween(prev && prev.order, next && next.order);
 }
 
+/**
+ * The status to move a task to on save, or null. Compares with the status
+ * the modal opened with, so a move someone else made meanwhile is never
+ * reverted; skips a move to the status the task already has.
+ */
+export function statusMove(openedStatus, chosenStatus, liveStatus = openedStatus) {
+  if (chosenStatus === openedStatus || chosenStatus === liveStatus) return null;
+  return chosenStatus;
+}
+
 /** Options for a status select, in board order. */
 export function statusOptions() {
   return STATUSES.map((value) => ({ value, text: STATUS_LABELS[value] }));

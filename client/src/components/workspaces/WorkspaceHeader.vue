@@ -5,7 +5,11 @@
     </router-link>
     <div class="ws-header-text">
       <h1 class="ws-header-name" :title="workspace.name">{{ workspace.name }}</h1>
-      <p v-if="workspace.description" class="ws-header-description">
+      <p
+        v-if="workspace.description"
+        class="ws-header-description"
+        :title="workspace.description"
+      >
         {{ workspace.description }}
       </p>
       <router-link v-if="chatName" to="/chatrooms" class="ws-header-chat">
@@ -111,6 +115,10 @@ export default {
 .ws-header-description {
   margin: var(--ws-space-1) 0 0;
   color: var(--ws-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .ws-header-chat {
   display: inline-block;

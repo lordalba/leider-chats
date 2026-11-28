@@ -179,11 +179,18 @@ export default {
     startRename(item) {
       this.renamingId = String(item._id);
       this.renameTitle = item.title;
-      this.$nextTick(() => {
+      // Called from a dropdown item: the dropdown refocuses its toggle on a
+      // later tick as it closes. Focus the input after that (a macrotask),
+      // or the toggle steals focus and the blur-save closes the input.
+      setTimeout(() => {
+        if (this.renamingId !== String(item._id)) return;
         const input = this.$refs.renameInput;
         const el = Array.isArray(input) ? input[0] : input;
-        if (el && el.focus) el.focus();
-      });
+        if (el && el.focus) {
+          el.focus();
+          if (el.select) el.select();
+        }
+      }, 0);
     },
     cancelRename() {
       this.renamingId = null;

@@ -64,6 +64,15 @@ const scenes = [
     await b.click(".item-menu-toggle", null, 500);
     await b.click(".item-menu .dropdown-menu.show .dropdown-item", "Delete", 1000);
   }],
+  ["09-rename-whiteboard", async (b) => {
+    // Rename from the list menu: the input must keep focus once the menu closes.
+    await b.nav(ws("/whiteboards"), 3000);
+    await b.waitFor(".item-row");
+    await b.click(".item-menu-toggle", null, 500);
+    await b.click(".item-menu .dropdown-menu.show .dropdown-item", "Rename", 800);
+    const focused = await b.eval(`document.activeElement === document.querySelector('.item-rename input')`);
+    if (!focused) console.log("  ! rename input lost focus");
+  }],
   ["07-chat-details", async (b) => {
     await b.nav(`${APP}/chatrooms`, 3000);
     await b.click(".friend-item", "Road trip crew", 2500);

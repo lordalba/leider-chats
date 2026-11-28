@@ -63,6 +63,7 @@ import {
   appendOrder,
   dueDateToInput,
   inputToDueDate,
+  statusMove,
   statusOptions,
   taskErrorMessage,
 } from "@/workspaces/taskBoard";
@@ -119,6 +120,8 @@ export default {
       assignedTo: [],
       dueDate: "",
       taskStatus: "todo",
+      // Status as opened (edit mode): see statusMove.
+      openedStatus: null,
       statusOptions: statusOptions(),
       busy: false,
       deleting: false,
@@ -160,6 +163,7 @@ export default {
         : [];
       this.dueDate = task ? dueDateToInput(task.dueDate) : "";
       this.taskStatus = task ? task.status : this.status;
+      this.openedStatus = task ? task.status : null;
       this.busy = false;
       this.deleting = false;
       this.initialFields = task ? this.fields() : null;
@@ -201,7 +205,7 @@ export default {
           const patch = this.changedFields();
           // task:update ignores status: a status change is a task:move to
           // the end of the new column.
-          const moveTo = this.taskStatus !== this.task.status ? this.taskStatus : null;
+          const moveTo = statusMove(this.openedStatus, this.taskStatus, this.task.status);
           if (Object.keys(patch).length) {
             item = await emitWithAck(this.socket, "task:update", id, patch);
             this.$emit("item-event", { action: "updated", item });

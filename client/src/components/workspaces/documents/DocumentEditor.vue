@@ -33,9 +33,16 @@
           :size="26"
         />
       </div>
-      <span class="doc-sync" :class="'tone-' + sync.tone" role="status" aria-live="polite">
+      <span
+        class="doc-sync"
+        :class="'tone-' + sync.tone"
+        :title="sync.text"
+        role="status"
+        aria-live="polite"
+      >
         <span class="doc-sync-dot" aria-hidden="true"></span>
-        {{ sync.text }}
+        <span class="doc-sync-long">{{ sync.text }}</span>
+        <span class="doc-sync-short" aria-hidden="true">{{ sync.short || sync.text }}</span>
       </span>
     </header>
     <div class="doc-body">
@@ -103,7 +110,9 @@ export default {
   },
   computed: {
     sync() {
-      return this.fatal ? { text: this.fatal, tone: "error" } : syncLabel(this.syncState);
+      return this.fatal
+        ? { text: this.fatal, short: "Error", tone: "error" }
+        : syncLabel(this.syncState);
     },
     viewersLabel() {
       return "Also here: " + this.viewers.map((m) => m.username).join(", ");
@@ -323,5 +332,27 @@ export default {
 .document-quill ::v-deep .ql-editor {
   min-height: 100%;
   padding: var(--ws-space-4) 20px;
+}
+
+.doc-sync-short {
+  display: none;
+}
+@media (max-width: 767.98px) {
+  .doc-header {
+    gap: var(--ws-space-2);
+    padding: var(--ws-space-2);
+  }
+  /* The full text stays for screen readers; phones show the short one. */
+  .doc-sync-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .doc-sync-short {
+    display: inline;
+  }
 }
 </style>

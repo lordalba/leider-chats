@@ -2,11 +2,16 @@
 // Priority: diverged > offline > retrying > connecting > synced.
 export function syncLabel(state) {
   const s = state || {};
-  if (s.diverged) return { text: "Not syncing — reload the page", tone: "error" };
-  if (s.connected === false) {
-    return { text: "Offline — changes will sync when you reconnect", tone: "warn" };
+  // `short` is for phones, where the full text would squeeze the title.
+  if (s.diverged) {
+    return { text: "Not syncing — reload the page", short: "Not syncing", tone: "error" };
   }
-  if (s.retrying) return { text: "Connection problem — retrying…", tone: "warn" };
-  if (!s.synced) return { text: "Connecting…", tone: "busy" };
-  return { text: "All changes synced", tone: "ok" };
+  if (s.connected === false) {
+    return { text: "Offline — changes will sync when you reconnect", short: "Offline", tone: "warn" };
+  }
+  if (s.retrying) {
+    return { text: "Connection problem — retrying…", short: "Retrying…", tone: "warn" };
+  }
+  if (!s.synced) return { text: "Connecting…", short: "Connecting…", tone: "busy" };
+  return { text: "All changes synced", short: "Synced", tone: "ok" };
 }

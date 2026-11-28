@@ -153,4 +153,10 @@ export default {
   font-size: 0.85em;
   margin: 0;
 }
+
+@media (max-width: 767.98px) {
+  .presence-label {
+    display: none;
+  }
+}
 </style>
