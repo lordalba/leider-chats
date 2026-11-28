@@ -28,6 +28,12 @@ const MessageSchema = new Schema<IMessage>(
       type: Date,
       default: Date.now,
     },
+    // Set on workspace system messages so the chat can link to it.
+    workspaceId: {
+      type: Schema.Types.ObjectId,
+      ref: "Workspace",
+      required: false,
+    },
     seenBy: [
       {
         type: Schema.Types.ObjectId,

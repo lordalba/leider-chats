@@ -45,7 +45,7 @@
   }
   
   .social-links a {
-    color: #333;
+    color: var(--ink);
     text-decoration: none;
   }
   

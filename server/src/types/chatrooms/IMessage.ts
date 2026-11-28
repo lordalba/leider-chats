@@ -20,4 +20,6 @@ export default interface IMessage extends Document {
   },
   timestamp: Date;
   seenBy: mongoose.Types.ObjectId[];
+  // System messages about a workspace (e.g. "created") link to it.
+  workspaceId?: mongoose.Types.ObjectId;
 }

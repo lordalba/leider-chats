@@ -17,7 +17,7 @@
   
   <style scoped>
   .testimonial {
-    background-color: #f4f4f4;
+    background-color: var(--sunken);
     padding: 20px;
     border-radius: 8px;
   }

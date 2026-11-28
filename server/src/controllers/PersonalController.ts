@@ -4,6 +4,11 @@ import IUser from "../types/IUser";
 import { MyUserRequest } from "../types/express";
 import path from "path";
 import fs from "fs";
+import {
+  isUsernameTaken,
+  normalizeUsername,
+  usernameError,
+} from "../services/CredentialsService";
 
 export const fetchUserDetails = async (
     req: MyUserRequest,
@@ -31,13 +36,23 @@ export const updateProfile = async (
       return res.status(404).json({ message: "User not found." });
     }
 
+    // Usernames are used to log in, so a new one must be valid and unique.
+    const newUsername = normalizeUsername(username);
+    if (newUsername !== user.username) {
+      const problem = usernameError(newUsername);
+      if (problem) return res.status(400).json({ message: problem });
+      if (await isUsernameTaken(newUsername, String(user._id))) {
+        return res.status(400).json({ message: "That username is already taken." });
+      }
+    }
+
     let profilePictureUrl = handleFileSaving(req, user, "/uploads/profilePictures");
 
     // Update the user data
     await User.findByIdAndUpdate(
       req.userId,
       {
-        username,
+        username: newUsername,
         aboutMe,
         skills: JSON.parse(skills),
         profilePictureUrl,

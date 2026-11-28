@@ -44,7 +44,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #f5aeae;
+  background-color: var(--line);
   transition: 0.4s;
   border-radius: 30px;
 }
@@ -71,11 +71,11 @@ export default {
 }
 
 .slider-card-front {
-  background-color: #dc3535;
+  background-color: var(--muted);
 }
 
 .slider-card-back {
-  background-color: #379237;
+  background-color: var(--brand-strong);
   transform: rotateY(180deg);
 }
 
@@ -92,6 +92,6 @@ input:checked ~ .slider-card {
 }
 
 input:checked ~ .slider {
-  background-color: #9ed99c;
+  background-color: var(--brand-soft);
 }
 </style>

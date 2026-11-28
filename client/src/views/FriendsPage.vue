@@ -105,7 +105,7 @@ export default {
 
 .friend-requests-sidebar {
   flex: 1;
-  background-color: #f9f9f9;
+  background-color: var(--surface);
   padding: 20px;
   border-radius: 8px;
   margin-right: 14%;
@@ -119,7 +119,7 @@ export default {
   padding: 10px;
   margin-bottom: 20px;
   border-radius: 5px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--line);
 }
 
 .friend-card {
@@ -140,8 +140,8 @@ export default {
 }
 
 .message-btn {
-  background-color: #28a745;
-  color: white;
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
   padding: 8px 12px;
   border: none;
   border-radius: 5px;
@@ -153,8 +153,8 @@ export default {
   padding: 10px;
   margin-top: 4%;
   margin-left: 20%;
-  background-color: #65acf8;
-  color: white;
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
   border: none;
   border-radius: 5px;
   text-align: center;
@@ -164,8 +164,8 @@ export default {
   position: fixed;
   bottom: 50px;
   right: 60px;
-  background-color: #4caf50;
-  color: white;
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
   padding: 10px 20px;
   font-size: 130%;
   border: none;

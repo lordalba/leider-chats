@@ -1,26 +1,26 @@
+// Must stay the first import: CommonJS runs imports before this file's body,
+// and modules such as config/jwt read process.env at load time.
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
+import { socketAuth } from "./socketHandlers/socketAuth";
 import connectDB from "./config/db";
 import authRoutes from "./routes/Auth";
 import userRoutes from "./routes/UserRoutes";
 import personalRoutes from "./routes/PersonalRoutes";
 import chatRoomsRoutes from "./routes/chatrooms/ChatRoomsRoutes";
 import workspaceRouter from "./routes/workspaces/WorkspaceRoutes";
-import whiteboardRouter from "./routes/workspaces/WhiteboardRoutes";
-import taskRouter from "./routes/workspaces/TaskRoutes";
-import documentRouter from "./routes/workspaces/DocumentRoutes";
 import mediaUploadRoutes from "./utils/MediaUploader";
 import socketHandlers from "./socketHandlers";
+import { yDocManager } from "./services/workspaces/YDocManager";
 import path from "path";
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 export const io = new Server(server, {
+  maxHttpBufferSize: 5e6,
   cors: {
     origin: "http://localhost:8080",
     // origin: ["http://10.0.0.18:8080", "http://localhost:8080"],
@@ -36,9 +36,6 @@ app.use("/api/users", userRoutes);
 app.use("/api/personal", personalRoutes);
 app.use("/api/chatrooms", chatRoomsRoutes);
 app.use("/api/workspaces", workspaceRouter);
-app.use("/api/whiteboards", whiteboardRouter);
-app.use("/api/tasks", taskRouter);
-app.use("/api/documents", documentRouter);
 app.use("/api/uploads", mediaUploadRoutes);
 
 connectDB();
@@ -46,4 +43,19 @@ connectDB();
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
+io.use(socketAuth);
 socketHandlers(io);
+
+// Persist live documents (their debounced saves) before the process exits.
+let shuttingDown = false;
+const shutdown = (signal: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received: saving open documents`);
+  yDocManager
+    .flushAll()
+    .catch((error) => console.error("flushing documents on shutdown failed:", error))
+    .finally(() => process.exit(0));
+};
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

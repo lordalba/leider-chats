@@ -1,95 +1,52 @@
-import { Request, Response } from "express";
-import Workspace from "../../models/workspaces/Workspace";
+import { Response } from "express";
 import { MyUserRequest } from "../../types/express";
+import { WorkspaceError } from "../../services/workspaces/WorkspaceAccess";
+import {
+  getWorkspaceDetail,
+  listWorkspaces,
+} from "../../services/workspaces/WorkspaceService";
 
-export const createWorkspace = async (req: MyUserRequest, res: Response) => {
-  try {
-    const { name, description, participants } =
-      req.body;
-
-    const workspace = await Workspace.create({
-      name,
-      description,
-      documents: [],
-      whiteboards: [],
-      tasks: [],
-      participants: participants || [],
-      createdBy: req.userId,
-    });
-
-    res.status(201).json(workspace);
-  } catch (error) {
-    res.status(500).json({ message: "Error creating workspace", error });
+const statusFor = (error: WorkspaceError): number => {
+  switch (error.code) {
+    case "forbidden":
+      return 403;
+    case "not_found":
+      return 404;
+    case "invalid":
+      return 400;
+    default:
+      return 500;
   }
 };
 
-export const getAllWorkspaces = async (req: MyUserRequest, res: Response) => {
-  try {
-    const workspaces = await Workspace.find({
-      "participants.userId": req.userId,
-    });
+const sendError = (res: Response, error: unknown, fallback: string) => {
+  if (error instanceof WorkspaceError) {
+    return res.status(statusFor(error)).json({ error: error.code });
+  }
+  console.error(fallback, error);
+  return res.status(500).json({ error: "server_error" });
+};
 
-    res.json(workspaces);
+// GET /api/workspaces?chatRoomId=
+export const getWorkspaces = async (req: MyUserRequest, res: Response) => {
+  try {
+    const { chatRoomId } = req.query;
+    if (chatRoomId !== undefined && typeof chatRoomId !== "string") {
+      return res.status(400).json({ error: "invalid" });
+    }
+    const workspaces = await listWorkspaces(String(req.userId), chatRoomId || undefined);
+    return res.json(workspaces);
   } catch (error) {
-    res.status(500).json({ message: "Error retrieving workspaces", error });
+    return sendError(res, error, "Error listing workspaces");
   }
 };
 
+// GET /api/workspaces/:id
 export const getWorkspaceById = async (req: MyUserRequest, res: Response) => {
   try {
-    const workspace = await Workspace.findById(req.params.id).populate([
-      "documents",
-      "whiteboards",
-      "tasks",
-    ]);
-
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found" });
-    }
-
-    if (
-      !workspace.participants.some(
-        (participant) => participant.userId.toString() === req.userId
-      )
-    ) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    return res.json(workspace);
+    const detail = await getWorkspaceDetail(String(req.userId), req.params.id);
+    return res.json(detail);
   } catch (error) {
-    return res.status(500).json({ message: "Error retrieving workspace", error });
-  }
-};
-
-export const updateWorkspace = async (req: Request, res: Response) => {
-  try {
-    const { name, description } = req.body;
-
-    const workspace = await Workspace.findByIdAndUpdate(
-      req.params.id,
-      { name, description },
-      { new: true }
-    );
-
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found" });
-    }
-
-    return res.json(workspace);
-  } catch (error) {
-    return res.status(500).json({ message: "Error updating workspace", error });
-  }
-};
-
-export const deleteWorkspace = async (req: Request, res: Response) => {
-  try {
-    const workspace = await Workspace.findByIdAndDelete(req.params.id);
-    if (!workspace) {
-      return res.status(404).json({ message: "Workspace not found" });
-    }
-
-    return res.json({ message: "Workspace deleted successfully" });
-  } catch (error) {
-    return res.status(500).json({ message: "Error deleting workspace", error });
+    return sendError(res, error, "Error retrieving workspace");
   }
 };

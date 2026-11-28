@@ -1,0 +1,240 @@
+<template>
+  <b-modal
+    :visible="visible"
+    content-class="ws-scope"
+    :title="editing ? 'Edit workspace' : 'New workspace'"
+    :ok-title="editing ? 'Save' : 'Create workspace'"
+    cancel-variant="outline-secondary"
+    :ok-disabled="submitting || needsGroup"
+    @show="onShow"
+    @ok.prevent="submit"
+    @hidden="onHidden"
+    @change="(v) => $emit('update:visible', v)"
+  >
+    <b-form @submit.prevent="submit">
+      <template v-if="!chatroomId && !editing">
+        <p v-if="chatsLoading" class="text-muted">Loading your group chats…</p>
+        <div v-else-if="!chatOptions.length" class="no-groups">
+          <p>You need a group chat to create a workspace.</p>
+          <router-link to="/chatrooms" @click.native="$emit('update:visible', false)">
+            Go to your chats
+          </router-link>
+        </div>
+        <b-form-group v-else label="Group chat" label-for="workspace-chat">
+          <b-form-select
+            id="workspace-chat"
+            v-model="pickedChatId"
+            :options="chatOptions"
+            required
+          >
+            <template #first>
+              <b-form-select-option :value="null" disabled>Choose a group chat</b-form-select-option>
+            </template>
+          </b-form-select>
+        </b-form-group>
+      </template>
+      <b-form-group v-if="!needsGroup" label="Name" label-for="workspace-name">
+        <b-form-input
+          id="workspace-name"
+          v-model="name"
+          :maxlength="NAME_MAX"
+          placeholder="e.g. Trip planning"
+          autofocus
+          :state="fieldError ? false : null"
+          :aria-describedby="fieldError ? 'workspace-form-error' : null"
+          @input="fieldError = ''"
+        />
+      </b-form-group>
+      <b-form-group v-if="!needsGroup" label="Description (optional)" label-for="workspace-description">
+        <b-form-textarea
+          id="workspace-description"
+          v-model="description"
+          rows="3"
+          :maxlength="DESCRIPTION_MAX"
+          @input="fieldError = ''"
+        />
+      </b-form-group>
+      <p v-if="fieldError" id="workspace-form-error" class="form-error" role="alert">
+        {{ fieldError }}
+      </p>
+    </b-form>
+  </b-modal>
+</template>
+
+<script>
+import { emitWithAck } from "@/workspaces/socketCall";
+import { fetchChatRooms } from "@/api/ChatRoomService";
+import { groupChatOptions } from "@/workspaces/chatOptions";
+import {
+  DESCRIPTION_MAX,
+  NAME_MAX,
+  workspaceFieldError,
+  workspacePatch,
+} from "@/workspaces/workspaceEdit";
+
+const ERROR_MESSAGES = {
+  invalid: "Name must be 1–80 characters",
+};
+
+// Create mode by default; pass `workspace` to edit its name and description.
+
+export default {
+  name: "CreateWorkspaceModal",
+  props: {
+    visible: {
+      type: Boolean,
+      default: false,
+    },
+    // Given when opened from a chat; otherwise the modal asks for one.
+    chatroomId: {
+      type: String,
+      default: null,
+    },
+    socket: {
+      type: Object,
+      default: null,
+    },
+    // Edit mode: the workspace to rename/describe.
+    workspace: {
+      type: Object,
+      default: null,
+    },
+  },
+  data() {
+    return {
+      name: "",
+      description: "",
+      submitting: false,
+      chatOptions: [],
+      chatsLoading: false,
+      pickedChatId: null,
+      // Shown after trying to save an invalid form.
+      fieldError: "",
+      // Edit mode: values as opened, so only the user's changes are sent.
+      openedFields: null,
+      NAME_MAX,
+      DESCRIPTION_MAX,
+    };
+  },
+  computed: {
+    trimmedName() {
+      return this.name.trim();
+    },
+    editing() {
+      return !!this.workspace;
+    },
+    targetChatId() {
+      return this.chatroomId || this.pickedChatId;
+    },
+    // No chat given and none to pick from.
+    needsGroup() {
+      return !this.editing && !this.chatroomId && (this.chatsLoading || !this.chatOptions.length);
+    },
+  },
+  methods: {
+    async submit() {
+      if (this.submitting) return;
+      const problem =
+        !this.editing && !this.targetChatId
+          ? "Choose a group chat first"
+          : workspaceFieldError({ name: this.name, description: this.description });
+      if (problem) {
+        this.fieldError = problem;
+        return;
+      }
+      if (!this.socket) {
+        this.$toast.error("Could not create workspace");
+        return;
+      }
+      this.submitting = true;
+      if (this.editing) {
+        await this.save();
+        this.submitting = false;
+        return;
+      }
+      try {
+        const input = { name: this.trimmedName };
+        if (this.description.trim()) input.description = this.description.trim();
+        const workspace = await emitWithAck(
+          this.socket,
+          "workspace:create",
+          this.targetChatId,
+          input
+        );
+        this.$emit("created", workspace);
+        this.$emit("update:visible", false);
+      } catch (error) {
+        console.error("workspace:create failed:", error);
+        this.$toast.error(
+          ERROR_MESSAGES[error.message] || "Could not create workspace"
+        );
+      } finally {
+        this.submitting = false;
+      }
+    },
+    async save() {
+      try {
+        const patch = workspacePatch(this.openedFields || {}, {
+          name: this.name,
+          description: this.description,
+        });
+        if (!Object.keys(patch).length) {
+          this.$emit("update:visible", false);
+          return;
+        }
+        const workspace = await emitWithAck(
+          this.socket,
+          "workspace:rename",
+          String(this.workspace._id),
+          patch
+        );
+        this.$emit("saved", workspace);
+        this.$emit("update:visible", false);
+      } catch (error) {
+        console.error("workspace:rename failed:", error);
+        this.$toast.error(ERROR_MESSAGES[error.message] || "Could not save the workspace");
+      }
+    },
+    async onShow() {
+      this.fieldError = "";
+      if (this.editing) {
+        this.name = this.workspace.name || "";
+        this.description = this.workspace.description || "";
+        this.openedFields = { name: this.name, description: this.description };
+        return;
+      }
+      if (this.chatroomId) return;
+      this.chatsLoading = true;
+      try {
+        const response = await fetchChatRooms();
+        this.chatOptions = groupChatOptions(response.data);
+        if (this.chatOptions.length === 1) this.pickedChatId = this.chatOptions[0].value;
+      } catch (error) {
+        console.error("Failed to load chats:", error);
+        this.chatOptions = [];
+        this.$toast.error("Could not load your chats");
+      } finally {
+        this.chatsLoading = false;
+      }
+    },
+    onHidden() {
+      this.name = "";
+      this.description = "";
+      this.pickedChatId = null;
+      this.$emit("update:visible", false);
+    },
+  },
+};
+</script>
+
+<style scoped>
+.no-groups p {
+  margin-bottom: var(--ws-space-1);
+}
+
+.form-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ws-danger);
+}
+</style>

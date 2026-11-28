@@ -4,7 +4,7 @@ import IDocument from "../../types/workspaces/IDocument";
 const documentSchema = new Schema<IDocument>(
   {
     title: { type: String, required: true },
-    content: { type: String, default: "" },
+    ydocState: { type: Buffer, select: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     workspace: { type: mongoose.Schema.Types.ObjectId, ref: "Workspace", required: true },
   },

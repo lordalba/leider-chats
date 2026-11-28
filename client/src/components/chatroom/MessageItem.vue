@@ -86,8 +86,8 @@
           <i class="fa-solid fa-check"></i>
         </span>
         <span v-else class="seen-indicator">
-          <i class="fa-solid fa-check" style="color: rgb(100, 173, 255)"></i>
-          <i class="fa-solid fa-check" style="color: rgb(100, 173, 255)"></i>
+          <i class="fa-solid fa-check" style="color: var(--plum)"></i>
+          <i class="fa-solid fa-check" style="color: var(--plum)"></i>
         </span>
       </div>
 
@@ -229,7 +229,7 @@ export default {
 }
 
 .media-content a {
-  color: #007bff;
+  color: var(--plum);
   text-decoration: none;
   font-weight: bold;
 }
@@ -256,16 +256,16 @@ export default {
 }
 
 .own-message {
-  background-color: #dcf8c6;
-  color: #000;
+  background-color: var(--brand-soft);
+  color: var(--ink);
   border-radius: 10px 10px 10px 0;
   padding-left: 20px;
   text-align: left;
 }
 
 .other-message {
-  background-color: #fff;
-  color: #000;
+  background-color: var(--surface);
+  color: var(--ink);
   border-radius: 10px 10px 0 10px;
   padding-right: 20px;
   margin-bottom: 20px;
@@ -273,14 +273,14 @@ export default {
 }
 
 .friend-message {
-  color: #666;
+  color: var(--muted);
   font-size: 0.9em;
   margin-top: 5px;
 }
 
 .seen-indicator {
   font-size: 0.8em;
-  color: #888;
+  color: var(--muted);
   margin-top: 5px;
 }
 
@@ -292,7 +292,7 @@ export default {
 }
 
 .dropbtn {
-  color: rgb(175, 175, 175);
+  color: var(--muted);
   padding: 5px;
   font-size: 8px;
   border-radius: 50%;
@@ -307,21 +307,21 @@ export default {
 .dropup-content {
   display: none;
   position: absolute;
-  background-color: #f1f1f1;
+  background-color: var(--sunken);
   min-width: 160px;
   bottom: 20px;
   z-index: 1;
 }
 
 .dropup-content a {
-  color: black;
+  color: var(--ink);
   padding: 12px 16px;
   text-decoration: none;
   display: block;
 }
 
 .dropup-content a:hover {
-  background-color: #ccc;
+  background-color: var(--line);
 }
 
 .dropup:hover .dropup-content {
@@ -334,7 +334,7 @@ export default {
   border-radius: 10px;
   overflow: hidden;
   margin-top: 10px;
-  background: #f1f1f1; /* Add a fallback background to avoid collapse */
+  background: var(--sunken); /* Add a fallback background to avoid collapse */
 }
 
 .location-preview {
@@ -346,7 +346,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 10px;
-  background-color: #f1f0f0;
+  background-color: var(--sunken);
   border-radius: 10px;
   gap: 10px;
 }
@@ -357,10 +357,10 @@ export default {
   justify-content: center;
   width: 40px;
   height: 40px;
-  background-color: #e6e6e6;
+  background-color: var(--line);
   border-radius: 50%;
   font-size: 18px;
-  color: #007bff;
+  color: var(--plum);
 }
 
 .file-details {
@@ -371,7 +371,7 @@ export default {
 .file-name {
   font-weight: bold;
   font-size: 14px;
-  color: #333;
+  color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
@@ -379,19 +379,19 @@ export default {
 
 .file-meta {
   font-size: 12px;
-  color: #666;
+  color: var(--muted);
 }
 
 .file-download {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #007bff;
+  color: var(--plum);
   font-size: 18px;
   text-decoration: none;
 }
 
 .file-download:hover {
-  color: #0056b3;
+  color: var(--plum-strong);
 }
 </style>

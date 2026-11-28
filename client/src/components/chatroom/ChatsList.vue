@@ -135,7 +135,7 @@ export default {
 .sidebar {
   width: 300px;
   height: 85vh;
-  background-color: #f5f5f5;
+  background-color: var(--sunken);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -155,18 +155,18 @@ export default {
   margin-bottom: 10%;
   width: 200px;
   height: 60px;
-  border: 3px solid #2fa7f7;
+  border: 3px solid var(--brand);
   border-radius: 45px;
   transition: all 0.3s;
   cursor: pointer;
-  background: white;
+  background: var(--raised);
   font-size: 1.2em;
   font-weight: 550;
 }
 
 .create-chat:hover {
-  background: #57bbf5;
-  color: white;
+  background: var(--apricot);
+  color: var(--on-brand);
   font-size: 1.3em;
 }
 </style>

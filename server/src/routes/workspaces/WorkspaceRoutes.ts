@@ -1,19 +1,14 @@
 import express from "express";
 import { authenticate } from "../../middlewares/AuthMiddleware";
 import {
-  createWorkspace,
-  getAllWorkspaces,
+  getWorkspaces,
   getWorkspaceById,
-  updateWorkspace,
-  deleteWorkspace,
 } from "../../controllers/workspaces/WorkspaceController";
 
+// Reads only; workspace writes go over sockets (workspace:* events).
 const router = express.Router();
 
-router.post("/", authenticate, createWorkspace);
-router.get("/", authenticate, getAllWorkspaces);
+router.get("/", authenticate, getWorkspaces);
 router.get("/:id", authenticate, getWorkspaceById);
-router.put("/:id", authenticate, updateWorkspace);
-router.delete("/:id", authenticate, deleteWorkspace);
 
 export default router;

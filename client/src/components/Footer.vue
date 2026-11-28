@@ -14,7 +14,7 @@
   .footer {
     text-align: center;
     padding: 13px;
-    background-color: #f1f1f1;
-    color: #555;
+    background-color: var(--sunken);
+    color: var(--muted);
   }
   </style>

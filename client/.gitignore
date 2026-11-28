@@ -21,3 +21,7 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# UI screenshot harness output and seeded ids
+ui-shots-out/
+scripts/ui-shots/demo.json

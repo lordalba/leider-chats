@@ -1,0 +1,114 @@
+/*
+ * Workspace design tokens. Workspace components use these variables instead
+ * of hex literals (exceptions: the whiteboard palette and cursor colors).
+ * Spec: docs/superpowers/specs/2026-11-27-workspaces-ux-audit.md
+ */
+:root {
+  --ws-accent: var(--brand-strong);
+  --ws-accent-strong: var(--brand-hover);
+  --ws-accent-soft: var(--brand-soft);
+  --ws-danger: var(--danger);
+  --ws-danger-soft: #F8E4E0;
+  --ws-warn: #A8641A;
+  --ws-warn-soft: #FCEFD9;
+  --ws-surface: var(--surface);
+  --ws-surface-muted: var(--sunken);
+  --ws-border: var(--line);
+  --ws-text: var(--ink);
+  --ws-text-muted: var(--muted);
+  --ws-radius-sm: 6px;
+  --ws-radius: 8px;
+  --ws-space-1: 4px;
+  --ws-space-2: 8px;
+  --ws-space-3: 12px;
+  --ws-space-4: 16px;
+  --ws-focus: 0 0 0 3px rgba(242, 107, 29, 0.35);
+  --ws-shadow: 0 1px 2px var(--shadow);
+  /* Ring around avatars of people viewing a card right now. */
+  --ws-viewer: var(--plum);
+  /* Loading skeleton shimmer. */
+  --ws-skeleton: var(--line);
+  --ws-skeleton-hi: var(--sunken);
+}
+
+/*
+ * .ws-scope: put on the root of a workspace screen. Maps Bootstrap's blue
+ * primary (and form controls) onto the accent, and gives every focusable
+ * element a visible keyboard focus ring.
+ * Modals render outside the page (in <body>), so they get the scope too via
+ * their content class: add `content-class="ws-scope"` on b-modal.
+ */
+.ws-scope {
+  color: var(--ws-text);
+}
+.ws-scope .btn-primary,
+.ws-scope .btn-primary:disabled,
+.ws-scope .btn-primary.disabled {
+  background-color: var(--ws-accent);
+  border-color: var(--ws-accent);
+  color: var(--on-brand);
+}
+.ws-scope .btn-primary:not(:disabled):hover,
+.ws-scope .btn-primary:not(:disabled):active {
+  background-color: var(--ws-accent-strong);
+  border-color: var(--ws-accent-strong);
+}
+.ws-scope .btn-outline-primary {
+  color: var(--ws-accent-strong);
+  border-color: var(--ws-accent);
+}
+.ws-scope .btn-outline-primary:not(:disabled):hover {
+  background-color: var(--ws-accent-soft);
+  color: var(--ws-accent-strong);
+}
+.ws-scope .btn-link {
+  color: var(--ws-accent-strong);
+}
+.ws-scope .form-control:focus,
+.ws-scope .custom-select:focus,
+.ws-scope .form-select:focus {
+  border-color: var(--ws-accent);
+  box-shadow: var(--ws-focus);
+}
+.ws-scope .custom-control-input:checked ~ .custom-control-label::before,
+.ws-scope .form-check-input:checked {
+  background-color: var(--ws-accent);
+  border-color: var(--ws-accent);
+}
+.ws-scope :focus-visible {
+  outline: none;
+  box-shadow: var(--ws-focus);
+  border-radius: var(--ws-radius-sm);
+}
+
+/*
+ * bootstrap-vue 2 emits Bootstrap 4 class names (.custom-select, .form-group)
+ * that the app's Bootstrap 5 stylesheet doesn't style.
+ */
+.ws-scope .form-group {
+  margin-bottom: var(--ws-space-4);
+}
+.ws-scope .form-group > label,
+.ws-scope .form-group legend {
+  margin-bottom: var(--ws-space-1);
+  font-weight: 500;
+}
+.ws-scope .custom-select {
+  display: block;
+  width: 100%;
+  padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ws-text);
+  background: var(--ws-surface)
+    url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e")
+    no-repeat right 0.75rem center / 16px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  appearance: none;
+}
+.ws-scope .custom-select-sm {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.875rem;
+}

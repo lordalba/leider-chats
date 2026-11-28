@@ -1,25 +1,10 @@
-import mongoose, { Document, Types } from "mongoose";
+import mongoose, { Document } from "mongoose";
 
 export default interface IWorkspace extends Document {
   name: string;
   description: string;
+  chatRoomId: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
-  participants: IWorkspaceParticipant[];
-  documents: mongoose.Types.ObjectId[];
-  whiteboards: mongoose.Types.ObjectId[];
-  tasks: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
-
-export interface IWorkspaceParticipant {
-    user: mongoose.Types.ObjectId;
-    role: WorkspaceRole;
-  }
-
-export enum WorkspaceRole {
-    OWNER = "owner",
-    ADMIN = "admin",
-    EDITOR = "editor",
-    VIEWER = "viewer",
-  }

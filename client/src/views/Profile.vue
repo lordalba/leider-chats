@@ -29,7 +29,7 @@
 
     <!-- Skills Section -->
     <div v-if="!isEditing" class="skills">
-      <div v-if="!user.skills">There are no musical skills added yet..</div>
+      <div v-if="!user.skills">No skills added yet.</div>
       <span v-for="skill in user.skills" :key="skill" class="skill-tag">
         <div class="skill">{{ skill }}</div></span
       >
@@ -171,6 +171,11 @@ export default {
         });
       } catch (error) {
         console.error("Error while sending updated profile data: ", error);
+        Swal.fire({
+          icon: "error",
+          title: "Couldn't save changes",
+          text: error.response?.data?.message || "Something went wrong. Please try again.",
+        });
       }
     },
   },
@@ -183,9 +188,9 @@ input[type="file"] {
 }
 
 .custom-file-upload {
-  border: 1px solid #ccc;
-  color: white;
-  background-color: #1e77d6;
+  border: 1px solid var(--line);
+  color: var(--on-brand);
+  background-color: var(--brand-strong);
   border-radius: 8px; /* Rounded corners */
   display: inline-block;
   padding: 6px 12px;
@@ -193,7 +198,7 @@ input[type="file"] {
 }
 
 .custom-file-upload:hover {
-  background-color: #3390f3;
+  background-color: var(--brand-hover);
   transform: scale(1.02);
 }
 
@@ -201,8 +206,8 @@ input[type="file"] {
   max-width: 70%; /* Limit the maximum width of the profile */
   margin: 0 auto; /* Center the container */
   padding: 20px;
-  background-color: #fff; /* White background for the profile section */
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  background-color: var(--surface); /* White background for the profile section */
+  box-shadow: 0 2px 10px var(--shadow); /* Subtle shadow for depth */
   border-radius: 8px; /* Rounded corners */
   text-align: center; /* Center text within the container */
 }
@@ -221,7 +226,7 @@ input[type="file"] {
 .profile-picture {
   width: 100px; /* Adjust size */
   height: 100px; /* Adjust size */
-  border: 2px solid #555;
+  border: 2px solid var(--line-strong);
   border-radius: 50%; /* Circular picture */
   margin: -50px auto 20px; /* Center the picture and pull it up */
   object-fit: cover; /* Ensure the picture covers the area */
@@ -230,7 +235,7 @@ input[type="file"] {
 h1,
 h2,
 h3 {
-  color: #333; /* Dark text for readability */
+  color: var(--ink); /* Dark text for readability */
   margin: 10px 0; /* Space out headings */
 }
 
@@ -243,16 +248,16 @@ h3 {
 }
 
 .skill {
-  background-color: #6e00ff;
-  color: white;
+  background-color: var(--plum);
+  color: var(--on-brand);
   padding: 5px 10px;
   border-radius: 15px;
   margin: 5px;
 }
 
 .skill_to_delete {
-  background-color: #b10311;
-  color: white;
+  background-color: var(--danger);
+  color: var(--on-brand);
   padding: 5px 10px;
   border-radius: 15px;
   margin: 5px;
@@ -269,7 +274,7 @@ h3 {
   width: 100%; /* Full width for inputs */
   padding: 10px;
   margin-bottom: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--line);
   border-radius: 4px;
 }
 
@@ -280,8 +285,8 @@ h3 {
 }
 
 .edit-button {
-  background-color: #0eb833; /* Default button color */
-  color: white;
+  background-color: var(--brand-strong); /* Default button color */
+  color: var(--on-brand);
   border: none;
   padding: 10px 20px;
   border-radius: 5px; /* Rounded corners */
@@ -291,10 +296,10 @@ h3 {
 }
 
 .save-button {
-  background-color: #0eb833; /* Default button color */
+  background-color: var(--brand-strong); /* Default button color */
   margin-top: 5%;
   margin-right: 2%;
-  color: white;
+  color: var(--on-brand);
   border: none;
   padding: 10px 20px;
   border-radius: 5px; /* Rounded corners */
@@ -303,7 +308,7 @@ h3 {
 
 .edit-button:hover,
 .save-button:hover {
-  background-color: #27dd4f;
+  background-color: var(--brand-hover);
   transform: scale(1.02); /* Darker color on hover */
 }
 

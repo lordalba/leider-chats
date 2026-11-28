@@ -30,6 +30,17 @@
             }}
           </p>
         </div>
+        <button
+          v-if="isSelectedChatroomGroupChat"
+          type="button"
+          class="chat-workspaces-btn"
+          :aria-label="`Workspaces (${workspaceCount})`"
+          @click.stop="openWorkspaces"
+        >
+          <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
+          Workspaces
+          <span class="chat-workspaces-count">{{ workspaceCount }}</span>
+        </button>
       </div>
 
       <MessageList
@@ -48,6 +59,7 @@
       v-if="isSidebarOpen"
       :chatroom="selectedChatroomDetails"
       :is-group-chat="isSelectedChatroomGroupChat"
+      :focus-workspaces="focusWorkspaces"
       @close="toggleSidebar"
       @chatroom-selected="selectChatroom"
       @chatroom-exited="removeChatFromList"
@@ -62,6 +74,7 @@ import ChatInput from "@/components/chatroom/ChatInput.vue";
 import { fetchChatRooms } from "@/api/ChatRoomService";
 import store from "@/store/store";
 import ChatroomSidebar from "@/components/chatroom/ChatroomSidebar.vue";
+import { fetchWorkspaces } from "@/api/WorkspaceService";
 
 export default {
   name: "chatRoom",
@@ -80,12 +93,19 @@ export default {
       selectedChatroomId: null,
       participantsAmount: null,
       isSidebarOpen: false,
+      // Top-bar "Workspaces" button: its count, and whether it opened the drawer.
+      workspaceCount: 0,
+      focusWorkspaces: 0,
     };
+  },
+  beforeDestroy() {
+    if (this.socket) this.socket.off("chat:workspaces-changed", this.onWorkspacesChanged);
   },
   async mounted() {
     await this.initializeChatrooms();
 
     if (this.socket) {
+      this.socket.on("chat:workspaces-changed", this.onWorkspacesChanged);
       this.socket.on("chatroom-created", () => {
         this.initializeChatrooms();
       });
@@ -183,6 +203,8 @@ export default {
       this.prevChatroomId = this.selectedChatroomId;
       this.selectedChatroomId = chatroomId;
       this.participantsAmount = this.calculateParticipantsAmount();
+      this.focusWorkspaces = 0;
+      this.loadWorkspaceCount();
 
       if (this.socket) {
         this.socket.emit(
@@ -225,6 +247,32 @@ export default {
     },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
+      this.focusWorkspaces = 0;
+      // The drawer can create workspaces: refresh the count when it closes.
+      if (!this.isSidebarOpen) this.loadWorkspaceCount();
+    },
+    openWorkspaces() {
+      this.isSidebarOpen = true;
+      this.focusWorkspaces++;
+    },
+    // Someone created/renamed/deleted a workspace in one of my chats.
+    onWorkspacesChanged(payload) {
+      if (payload && String(payload.chatRoomId) === String(this.selectedChatroomId)) {
+        this.loadWorkspaceCount();
+      }
+    },
+    async loadWorkspaceCount() {
+      const chatId = this.selectedChatroomId;
+      if (!chatId || !this.isSelectedChatroomGroupChat) {
+        this.workspaceCount = 0;
+        return;
+      }
+      try {
+        const response = await fetchWorkspaces(chatId);
+        if (this.selectedChatroomId === chatId) this.workspaceCount = (response.data || []).length;
+      } catch (error) {
+        console.error("Failed to load workspaces:", error);
+      }
     },
     extractFriendFromChatroom() {
       const selectedChatroom = this.selectedChatroom;
@@ -284,16 +332,16 @@ export default {
 }
 
 .error {
-  color: red;
+  color: var(--danger);
 }
 
 .chatroom-top-bar {
   display: flex;
   align-items: center;
   padding: 10px;
-  background-color: #f7f7f7;
-  box-shadow: 0 24px 10px rgba(0.5, 0.1, 0.1, 0.1);
-  border-bottom: 1px solid rgb(223, 223, 223);
+  background-color: var(--sunken);
+  box-shadow: 0 24px 10px var(--shadow);
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
 }
 
@@ -316,6 +364,34 @@ export default {
 .chatroom-participants {
   margin: 0;
   font-size: 12px;
-  color: #666;
+  color: var(--muted);
+}
+
+.chat-workspaces-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+.chat-workspaces-btn:hover {
+  border-color: var(--brand-hover);
+  color: var(--brand-text);
+}
+.chat-workspaces-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
 }
 </style>
