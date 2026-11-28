@@ -19,7 +19,7 @@
           {{ friend.age }} • {{ friend.profession }} • {{ friend.location }}
         </p>
       </div>
-      <ChatWorkspaces :chatroom-id="chatroom._id" />
+      <ChatWorkspaces ref="workspaces" :chatroom-id="chatroom._id" />
       <h5 style="margin-bottom: 5%">
         {{ isGroupChat ? "Participants:" : "Related Groups" }}
       </h5>
@@ -187,6 +187,11 @@ export default {
       type: Boolean,
       required: false,
     },
+    // Opened from the top bar's "Workspaces" button: scroll to that section.
+    focusWorkspaces: {
+      type: Boolean,
+      default: false,
+    },
   },
   data() {
     return {
@@ -200,6 +205,7 @@ export default {
     };
   },
   async mounted() {
+    if (this.focusWorkspaces) this.scrollToWorkspaces();
     if (!this.isGroupChat) {
       this.friend = this.extractFriendFromChatroom();
       const response = await fetchRelatedChatrooms(this.friend._id);
@@ -207,6 +213,12 @@ export default {
     }
   },
   methods: {
+    scrollToWorkspaces() {
+      this.$nextTick(() => {
+        const section = this.$refs.workspaces;
+        if (section && section.$el) section.$el.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    },
     toggleAccordion(participantId) {
       this.expandedParticipantId =
         this.expandedParticipantId === participantId ? null : participantId;
@@ -288,6 +300,9 @@ export default {
     },
   },
   watch: {
+    focusWorkspaces(focus) {
+      if (focus) this.scrollToWorkspaces();
+    },
     chatroom: {
       immediate: true,
       handler() {},

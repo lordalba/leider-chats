@@ -95,6 +95,7 @@ export async function createWorkspace(
     chatRoomId: chat._id,
     content: `${user.username} created the workspace "${name}"`,
     type: "system",
+    workspaceId: workspace._id,
   });
 
   return { workspace, message };

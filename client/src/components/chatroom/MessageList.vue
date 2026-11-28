@@ -6,7 +6,13 @@
           {{ message.date }}
         </div>
         <div v-else-if="message.type === 'system' && message.chatRoomId === chatroomId" class="system-message">
-          {{ message.content }}
+          <template v-if="workspaceLink(message)">
+            {{ workspaceLink(message).before }}<router-link
+              :to="workspaceLink(message).to"
+              class="system-message-link"
+            >{{ workspaceLink(message).name }}</router-link>{{ workspaceLink(message).after }}
+          </template>
+          <template v-else>{{ message.content }}</template>
         </div>
       </div>
       <MessageItem
@@ -34,6 +40,8 @@
 <script>
 import { fetchChatMessages } from "@/api/ChatRoomService";
 import MessageItem from "./MessageItem.vue";
+import { workspaceMessageParts } from "@/workspaces/chatLinks";
+import { workspacePath } from "@/workspaces/workspaceRoute";
 import store from "@/store/store";
 import { format } from "date-fns";
 // import TopChatCard from "./TopChatCard.vue";
@@ -131,6 +139,14 @@ export default {
     },
   },
   methods: {
+    // A "created the workspace" message links its name to the workspace.
+    // Older messages (no workspaceId) stay plain text.
+    workspaceLink(message) {
+      if (!message.workspaceId) return null;
+      const parts = workspaceMessageParts(message.content);
+      if (!parts) return null;
+      return { ...parts, to: workspacePath({ workspaceId: String(message.workspaceId) }) };
+    },
     async loadMessages(chatroomId) {
       try {
         if (chatroomId) {
@@ -203,4 +219,11 @@ export default {
   display: inline-block; /* Ensure element width wraps content */
 }
 
+
+.system-message-link {
+  font-weight: 600;
+  font-style: normal;
+  color: inherit;
+  text-decoration: underline;
+}
 </style>

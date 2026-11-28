@@ -51,6 +51,16 @@ describe("WorkspaceService", () => {
     expect(String(saved?.chatRoomId)).toBe(String(chat._id));
   });
 
+  test("createWorkspace's system message links to the new workspace", async () => {
+    const { bob, chat } = await setup();
+    const { workspace, message } = await createWorkspace(String(bob._id), String(chat._id), {
+      name: "Linked",
+    });
+    expect(String(message.workspaceId)).toBe(String(workspace._id));
+    const saved = await Message.findById(message._id);
+    expect(String(saved?.workspaceId)).toBe(String(workspace._id));
+  });
+
   test("createWorkspace by non-participant → forbidden", async () => {
     const { chat } = await setup();
     const outsider = await makeUser("outsider");

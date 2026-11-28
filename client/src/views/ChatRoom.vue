@@ -30,6 +30,17 @@
             }}
           </p>
         </div>
+        <button
+          v-if="isSelectedChatroomGroupChat"
+          type="button"
+          class="chat-workspaces-btn"
+          :aria-label="`Workspaces (${workspaceCount})`"
+          @click.stop="openWorkspaces"
+        >
+          <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
+          Workspaces
+          <span class="chat-workspaces-count">{{ workspaceCount }}</span>
+        </button>
       </div>
 
       <MessageList
@@ -48,6 +59,7 @@
       v-if="isSidebarOpen"
       :chatroom="selectedChatroomDetails"
       :is-group-chat="isSelectedChatroomGroupChat"
+      :focus-workspaces="focusWorkspaces"
       @close="toggleSidebar"
       @chatroom-selected="selectChatroom"
       @chatroom-exited="removeChatFromList"
@@ -62,6 +74,7 @@ import ChatInput from "@/components/chatroom/ChatInput.vue";
 import { fetchChatRooms } from "@/api/ChatRoomService";
 import store from "@/store/store";
 import ChatroomSidebar from "@/components/chatroom/ChatroomSidebar.vue";
+import { fetchWorkspaces } from "@/api/WorkspaceService";
 
 export default {
   name: "chatRoom",
@@ -80,6 +93,9 @@ export default {
       selectedChatroomId: null,
       participantsAmount: null,
       isSidebarOpen: false,
+      // Top-bar "Workspaces" button: its count, and whether it opened the drawer.
+      workspaceCount: 0,
+      focusWorkspaces: false,
     };
   },
   async mounted() {
@@ -183,6 +199,8 @@ export default {
       this.prevChatroomId = this.selectedChatroomId;
       this.selectedChatroomId = chatroomId;
       this.participantsAmount = this.calculateParticipantsAmount();
+      this.focusWorkspaces = false;
+      this.loadWorkspaceCount();
 
       if (this.socket) {
         this.socket.emit(
@@ -225,6 +243,26 @@ export default {
     },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
+      this.focusWorkspaces = false;
+      // The drawer can create workspaces: refresh the count when it closes.
+      if (!this.isSidebarOpen) this.loadWorkspaceCount();
+    },
+    openWorkspaces() {
+      this.isSidebarOpen = true;
+      this.focusWorkspaces = true;
+    },
+    async loadWorkspaceCount() {
+      const chatId = this.selectedChatroomId;
+      if (!chatId || !this.isSelectedChatroomGroupChat) {
+        this.workspaceCount = 0;
+        return;
+      }
+      try {
+        const response = await fetchWorkspaces(chatId);
+        if (this.selectedChatroomId === chatId) this.workspaceCount = (response.data || []).length;
+      } catch (error) {
+        console.error("Failed to load workspaces:", error);
+      }
     },
     extractFriendFromChatroom() {
       const selectedChatroom = this.selectedChatroom;
@@ -317,5 +355,33 @@ export default {
   margin: 0;
   font-size: 12px;
   color: #666;
+}
+
+.chat-workspaces-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d0d5da;
+  border-radius: 8px;
+  background: #fff;
+  color: #1f2328;
+  font-size: 14px;
+  cursor: pointer;
+}
+.chat-workspaces-btn:hover {
+  border-color: #45815c;
+  color: #2f5e43;
+}
+.chat-workspaces-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #e6f0ea;
+  color: #2f5e43;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
 }
 </style>
