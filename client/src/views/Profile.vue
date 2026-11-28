@@ -29,7 +29,7 @@
 
     <!-- Skills Section -->
     <div v-if="!isEditing" class="skills">
-      <div v-if="!user.skills">There are no musical skills added yet..</div>
+      <div v-if="!user.skills">No skills added yet.</div>
       <span v-for="skill in user.skills" :key="skill" class="skill-tag">
         <div class="skill">{{ skill }}</div></span
       >

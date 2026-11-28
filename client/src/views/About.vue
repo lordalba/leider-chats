@@ -2,7 +2,6 @@
   <div>
     <div class="about-container">
       <AboutTitle />
-      <ProfileImage />
     </div>
     <div class="content-section">
       <ContentDescription />
@@ -13,7 +12,6 @@
 
 <script>
 import AboutTitle from "../components/about/AboutTitle.vue";
-import ProfileImage from "../components/about/ProfileImage.vue";
 import ContentDescription from "../components/about/ContentDescription.vue";
 import Testimonial from "../components/about/Testimonial.vue";
 
@@ -21,7 +19,6 @@ export default {
   name: "AboutUs",
   components: {
     AboutTitle,
-    ProfileImage,
     ContentDescription,
     Testimonial,
   },
