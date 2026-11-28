@@ -78,7 +78,7 @@ export default {
 
         this.$store.dispatch("socket/initializeSocket");
 
-        this.$router.push("/");
+        this.$router.push("/chatrooms");
       } catch (error) {
         alert(error.message);
       }

@@ -13,7 +13,6 @@
     </button>
     <nav id="main-nav" class="nav" :class="{ open: menuOpen }" aria-label="Main">
       <ul>
-        <li><router-link to="/" exact class="menu-item">Home</router-link></li>
         <li v-if="loggedIn">
           <router-link to="/chatrooms" class="menu-item">Chats</router-link>
         </li>
@@ -65,7 +64,7 @@ export default {
     disconnect() {
       clearSession();
 
-      this.$router.push("/").catch(() => {});
+      this.$router.push("/login").catch(() => {});
       this.$toast.info("You're logged out");
     },
   },

@@ -1,7 +1,7 @@
-import Home from "./views/Home.vue";
 import Login from "./views/Login.vue";
 import VueRouter from "vue-router";
 import { pageTitle } from "./pageTitle";
+import { entryPath } from "./entryRoute";
 import Register from "./views/Register.vue";
 import FriendsPage from "./views/FriendsPage.vue";
 import Profile from "./views/Profile.vue";
@@ -16,12 +16,9 @@ const router = new VueRouter({
   },
   routes: [
     {
+      // No home page: straight to the chats (or the login page).
       path: "/",
-      name: "Home",
-      component: Home,
-      meta: {
-        title: "Home Page", // Set the title for this route
-      },
+      redirect: () => entryPath(localStorage.getItem("token")),
     },
 
     {
