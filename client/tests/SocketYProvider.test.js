@@ -274,3 +274,55 @@ describe("SocketYProvider", () => {
     });
   });
 });
+
+describe("SocketYProvider status events", () => {
+  async function watched(hub) {
+    const socket = hub.socket();
+    const ydoc = new Y.Doc();
+    const provider = new SocketYProvider(socket, DOC, ydoc);
+    const states = [];
+    provider.on("status", (s) => states.push(s));
+    await provider.connect();
+    return { socket, ydoc, provider, states, last: () => states[states.length - 1] };
+  }
+
+  it("reports synced after connecting", async () => {
+    const p = await watched(new FakeHub());
+    expect(p.last()).toEqual({ connected: true, synced: true, diverged: false, retrying: false });
+    expect(p.provider.status()).toEqual(p.last());
+  });
+
+  it("reports disconnected after a drop, and synced again after reconnecting", async () => {
+    const p = await watched(new FakeHub());
+    p.socket.drop();
+    expect(p.last()).toMatchObject({ connected: false, synced: false });
+    p.socket.reconnect();
+    await tick(30);
+    expect(p.last()).toMatchObject({ connected: true, synced: true });
+  });
+
+  it("reports diverged after an oversized update", async () => {
+    const p = await watched(new FakeHub());
+    p.ydoc.getText("quill").insert(0, "x".repeat(MAX_UPDATE_BYTES + 10));
+    await tick(30);
+    expect(p.last()).toMatchObject({ diverged: true, synced: false });
+  });
+
+  it("reports retrying after a transient failure", async () => {
+    const hub = new FakeHub();
+    const p = await watched(hub);
+    hub.failUpdates = "server_error";
+    p.ydoc.getText("quill").insert(0, "hi");
+    await tick(30);
+    expect(p.last()).toMatchObject({ retrying: true });
+    p.provider.destroy();
+  });
+
+  it("only emits when something changed", async () => {
+    const p = await watched(new FakeHub());
+    const count = p.states.length;
+    p.ydoc.getText("quill").insert(0, "a");
+    await tick(30);
+    expect(p.states.length).toBe(count);
+  });
+});

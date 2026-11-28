@@ -56,7 +56,8 @@ export class SocketYProvider {
     this.diverged = false;
     this.retries = 0;
     this.retryTimer = null;
-    this.listeners = { synced: new Set(), error: new Set() };
+    this.listeners = { synced: new Set(), error: new Set(), status: new Set() };
+    this.lastStatus = null;
 
     this.onDocUpdate = (update, origin) => {
       if (origin === this || this.diverged || !this.synced || !this.socket.connected) return;
@@ -99,6 +100,7 @@ export class SocketYProvider {
 
     this.onDisconnect = () => {
       this.synced = false;
+      this.emitStatus();
       // Remote cursors are stale once we stop hearing from the room.
       const others = [...this.awareness.getStates().keys()].filter(
         (id) => id !== this.ydoc.clientID
@@ -126,16 +128,39 @@ export class SocketYProvider {
     this.listeners[event].forEach((cb) => cb(arg));
   }
 
+  /** What the editor shows: { connected, synced, diverged, retrying }. */
+  status() {
+    return {
+      connected: Boolean(this.socket.connected),
+      synced: this.synced,
+      diverged: this.diverged,
+      // Waiting out a backoff, or re-opening after a failure.
+      retrying: this.retryTimer !== null || (this.retries > 0 && !this.synced),
+    };
+  }
+
+  /** Emit `status` when any of its fields changed since the last one. */
+  emitStatus() {
+    if (this.destroyed) return;
+    const next = this.status();
+    const prev = this.lastStatus;
+    if (prev && Object.keys(next).every((key) => next[key] === prev[key])) return;
+    this.lastStatus = next;
+    this.emitLocal("status", next);
+  }
+
   resync() {
     clearTimeout(this.retryTimer);
     this.retryTimer = null;
     this.synced = false;
+    this.emitStatus();
     const seq = this.connectSeq + 1;
     this.connect().catch((error) => this.onFailed(error, seq));
   }
 
   onSent(seq) {
     if (seq === this.connectSeq) this.retries = 0;
+    this.emitStatus();
   }
 
   /** A doc:open or doc:update failed: retry with backoff, or give up for good. */
@@ -148,6 +173,7 @@ export class SocketYProvider {
     }
     if (FATAL_ERRORS.has(code)) {
       this.synced = false;
+      this.emitStatus();
       this.emitLocal("error", error);
       return;
     }
@@ -161,7 +187,9 @@ export class SocketYProvider {
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       if (!this.destroyed && this.socket.connected) this.resync();
+      else this.emitStatus();
     }, delay);
+    this.emitStatus();
   }
 
   /**
@@ -175,6 +203,7 @@ export class SocketYProvider {
     this.synced = false;
     clearTimeout(this.retryTimer);
     this.retryTimer = null;
+    this.emitStatus();
     this.emitLocal("error", new Error("diverged"));
   }
 
@@ -206,6 +235,7 @@ export class SocketYProvider {
       this.retries = 0;
     }
     this.synced = true;
+    this.emitStatus();
 
     if (this.awareness.getLocalState() !== null) {
       this.socket.emit(
@@ -238,5 +268,6 @@ export class SocketYProvider {
     this.awareness.destroy();
     this.listeners.synced.clear();
     this.listeners.error.clear();
+    this.listeners.status.clear();
   }
 }

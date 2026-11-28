@@ -33,7 +33,10 @@
           v-if="selectedDoc"
           :key="selectedDocId"
           :docId="selectedDocId"
+          :title="selectedDoc.title"
+          :viewers="docViewers"
           :connectedUser="connectedUser"
+          @rename="(title) => renameItem('document', selectedDocId, title)"
           @closed="closeItem"
         />
         <EmptyState
@@ -116,7 +119,7 @@ import ItemList from "@/components/workspaces/ItemList.vue";
 import DocumentEditor from "@/components/workspaces/documents/DocumentEditor.vue";
 import WhiteboardCanvas from "@/components/workspaces/whiteboard/WhiteboardCanvas.vue";
 import { emitWithAck } from "@/workspaces/socketCall";
-import { itemErrorMessage } from "@/workspaces/items";
+import { itemErrorMessage, viewersById } from "@/workspaces/items";
 import { TABS, parseWorkspaceRoute, workspacePath } from "@/workspaces/workspaceRoute";
 
 // Socket event prefix and detail list per item kind.
@@ -225,6 +228,18 @@ export default {
         null
       );
     },
+    // Others with the open document open (me excluded, one per person).
+    docViewers() {
+      if (!this.selectedDocId) return [];
+      const here = viewersById(this.members, "document")[this.selectedDocId] || [];
+      const seen = new Set();
+      return here.filter((m) => {
+        const id = String(m.userId);
+        if (id === this.meId || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+    },
     canClearSelectedWb() {
       if (!this.selectedWb) return false;
       return isChatAdminOrCreator(this.detail, this.meId, this.selectedWb.createdBy);
@@ -327,9 +342,12 @@ export default {
 .workspace-detail {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
 }
 .items-tab {
+  flex: 1;
+  min-height: 0;
   display: flex;
   gap: 16px;
   align-items: flex-start;

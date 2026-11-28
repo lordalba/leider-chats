@@ -281,8 +281,11 @@ export default {
 </script>
 
 <style scoped>
+/* The detail pane has a fixed height: the board scrolls inside it. */
 .task-board {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   gap: var(--ws-space-3);
   align-items: stretch;
