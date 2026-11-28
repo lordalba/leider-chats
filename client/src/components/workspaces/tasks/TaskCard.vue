@@ -10,6 +10,7 @@
     @dragend="$emit('drag-end')"
     @click="$emit('open', task)"
     @keydown.enter="$emit('open', task)"
+    @keydown.space.prevent="$emit('open', task)"
   >
     <div class="task-card-top">
       <span class="task-title" :title="task.title">{{ task.title }}</span>
@@ -132,7 +133,7 @@ export default {
 }
 .task-viewers .task-viewer {
   margin-left: -6px;
-  border-color: #f0ad4e;
+  border-color: var(--ws-viewer);
 }
 .task-viewers .task-viewer:first-child {
   margin-left: 0;
@@ -172,7 +173,7 @@ export default {
   font-weight: 600;
 }
 .task-due.tone-overdue {
-  background: #fbeaea;
+  background: var(--ws-danger-soft);
   color: var(--ws-danger);
   font-weight: 600;
 }

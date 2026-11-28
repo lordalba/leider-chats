@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { TABS, parseWorkspaceRoute, workspacePath } from "../src/workspaces/workspaceRoute";
+import {
+  TABS,
+  canonicalWorkspacePath,
+  parseWorkspaceRoute,
+  workspacePath,
+} from "../src/workspaces/workspaceRoute";
 
 describe("workspaceRoute", () => {
   it("lists the three tabs in order", () => {
@@ -40,5 +45,25 @@ describe("workspaceRoute", () => {
     expect(workspacePath({ workspaceId: "w", tab: "documents" })).toBe("/workspaces/w/documents");
     expect(workspacePath({ workspaceId: "abc", tab: "documents", itemId: "d1" })).toBe("/workspaces/abc/documents/d1");
     expect(workspacePath({})).toBe("/workspaces");
+  });
+});
+
+describe("canonicalWorkspacePath", () => {
+  it("is null when the URL is already canonical", () => {
+    expect(canonicalWorkspacePath({ workspaceId: "w" })).toBe(null);
+    expect(canonicalWorkspacePath({ workspaceId: "w", tab: "documents", itemId: "d" })).toBe(null);
+  });
+
+  it("fixes an unknown tab", () => {
+    expect(canonicalWorkspacePath({ workspaceId: "w", tab: "foo", itemId: "x" })).toBe("/workspaces/w");
+  });
+
+  it("drops an item id on the tasks tab", () => {
+    expect(canonicalWorkspacePath({ workspaceId: "w", tab: "tasks", itemId: "x" })).toBe("/workspaces/w");
+    expect(canonicalWorkspacePath({ workspaceId: "w", tab: "tasks" })).toBe("/workspaces/w");
+  });
+
+  it("leaves the workspace list alone", () => {
+    expect(canonicalWorkspacePath({})).toBe(null);
   });
 });

@@ -5,7 +5,7 @@
     :title="editing ? 'Edit workspace' : 'New workspace'"
     :ok-title="editing ? 'Save' : 'Create workspace'"
     cancel-variant="outline-secondary"
-    :ok-disabled="!canSubmit"
+    :ok-disabled="submitting || needsGroup"
     @show="onShow"
     @ok.prevent="submit"
     @hidden="onHidden"
@@ -37,9 +37,12 @@
         <b-form-input
           id="workspace-name"
           v-model="name"
-          maxlength="80"
+          :maxlength="NAME_MAX"
           placeholder="e.g. Trip planning"
           autofocus
+          :state="fieldError ? false : null"
+          :aria-describedby="fieldError ? 'workspace-form-error' : null"
+          @input="fieldError = ''"
         />
       </b-form-group>
       <b-form-group v-if="!needsGroup" label="Description (optional)" label-for="workspace-description">
@@ -47,8 +50,13 @@
           id="workspace-description"
           v-model="description"
           rows="3"
+          :maxlength="DESCRIPTION_MAX"
+          @input="fieldError = ''"
         />
       </b-form-group>
+      <p v-if="fieldError" id="workspace-form-error" class="form-error" role="alert">
+        {{ fieldError }}
+      </p>
     </b-form>
   </b-modal>
 </template>
@@ -57,6 +65,12 @@
 import { emitWithAck } from "@/workspaces/socketCall";
 import { fetchChatRooms } from "@/api/ChatRoomService";
 import { groupChatOptions } from "@/workspaces/chatOptions";
+import {
+  DESCRIPTION_MAX,
+  NAME_MAX,
+  workspaceFieldError,
+  workspacePatch,
+} from "@/workspaces/workspaceEdit";
 
 const ERROR_MESSAGES = {
   invalid: "Name must be 1–80 characters",
@@ -94,6 +108,12 @@ export default {
       chatOptions: [],
       chatsLoading: false,
       pickedChatId: null,
+      // Shown after trying to save an invalid form.
+      fieldError: "",
+      // Edit mode: values as opened, so only the user's changes are sent.
+      openedFields: null,
+      NAME_MAX,
+      DESCRIPTION_MAX,
     };
   },
   computed: {
@@ -110,15 +130,18 @@ export default {
     needsGroup() {
       return !this.editing && !this.chatroomId && (this.chatsLoading || !this.chatOptions.length);
     },
-    canSubmit() {
-      return (
-        !!this.trimmedName && (this.editing || !!this.targetChatId) && !this.submitting
-      );
-    },
   },
   methods: {
     async submit() {
-      if (!this.canSubmit) return;
+      if (this.submitting) return;
+      const problem =
+        !this.editing && !this.targetChatId
+          ? "Choose a group chat first"
+          : workspaceFieldError({ name: this.name, description: this.description });
+      if (problem) {
+        this.fieldError = problem;
+        return;
+      }
       if (!this.socket) {
         this.$toast.error("Could not create workspace");
         return;
@@ -151,11 +174,19 @@ export default {
     },
     async save() {
       try {
+        const patch = workspacePatch(this.openedFields || {}, {
+          name: this.name,
+          description: this.description,
+        });
+        if (!Object.keys(patch).length) {
+          this.$emit("update:visible", false);
+          return;
+        }
         const workspace = await emitWithAck(
           this.socket,
           "workspace:rename",
           String(this.workspace._id),
-          { name: this.trimmedName, description: this.description.trim() }
+          patch
         );
         this.$emit("saved", workspace);
         this.$emit("update:visible", false);
@@ -165,9 +196,11 @@ export default {
       }
     },
     async onShow() {
+      this.fieldError = "";
       if (this.editing) {
         this.name = this.workspace.name || "";
         this.description = this.workspace.description || "";
+        this.openedFields = { name: this.name, description: this.description };
         return;
       }
       if (this.chatroomId) return;
@@ -197,5 +230,11 @@ export default {
 <style scoped>
 .no-groups p {
   margin-bottom: var(--ws-space-1);
+}
+
+.form-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ws-danger);
 }
 </style>

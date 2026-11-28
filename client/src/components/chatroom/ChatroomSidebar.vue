@@ -187,10 +187,11 @@ export default {
       type: Boolean,
       required: false,
     },
-    // Opened from the top bar's "Workspaces" button: scroll to that section.
+    // Bumped by the top bar's "Workspaces" button: each bump scrolls to that
+    // section (0 = opened some other way).
     focusWorkspaces: {
-      type: Boolean,
-      default: false,
+      type: Number,
+      default: 0,
     },
   },
   data() {
@@ -301,6 +302,7 @@ export default {
   },
   watch: {
     focusWorkspaces(focus) {
+      // A number: a second click while open changes it and scrolls again.
       if (focus) this.scrollToWorkspaces();
     },
     chatroom: {

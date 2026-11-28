@@ -12,11 +12,18 @@
       <b-form-group label="Title" label-for="task-title">
         <b-form-input
           id="task-title"
+          ref="titleInput"
           v-model="title"
           maxlength="200"
           placeholder="What needs doing?"
           autofocus
+          :state="titleHint ? false : null"
+          :aria-describedby="titleHint ? 'task-title-hint' : null"
+          @input="titleHint = false"
         />
+        <b-form-invalid-feedback id="task-title-hint" :state="titleHint ? false : null">
+          Give the task a title first
+        </b-form-invalid-feedback>
       </b-form-group>
       <b-form-group label="Status" label-for="task-status">
         <b-form-select id="task-status" v-model="taskStatus" :options="statusOptions" />
@@ -48,7 +55,7 @@
         Delete
       </b-button>
       <b-button variant="outline-secondary" :disabled="busy" @click="close">Cancel</b-button>
-      <b-button variant="primary" :disabled="!trimmedTitle || busy" @click="submit">
+      <b-button variant="primary" :disabled="busy" @click="submit">
         {{ editing ? "Save" : "Create" }}
       </b-button>
     </template>
@@ -120,6 +127,8 @@ export default {
       assignedTo: [],
       dueDate: "",
       taskStatus: "todo",
+      // Shown after trying to save without a title.
+      titleHint: false,
       // Status as opened (edit mode): see statusMove.
       openedStatus: null,
       statusOptions: statusOptions(),
@@ -163,6 +172,7 @@ export default {
         : [];
       this.dueDate = task ? dueDateToInput(task.dueDate) : "";
       this.taskStatus = task ? task.status : this.status;
+      this.titleHint = false;
       this.openedStatus = task ? task.status : null;
       this.busy = false;
       this.deleting = false;
@@ -191,7 +201,13 @@ export default {
       };
     },
     async submit() {
-      if (!this.trimmedTitle || this.busy) return;
+      if (this.busy) return;
+      if (!this.trimmedTitle) {
+        this.titleHint = true;
+        const input = this.$refs.titleInput;
+        if (input && input.focus) input.focus();
+        return;
+      }
       if (!this.socket) {
         this.$toast.error(taskErrorMessage("server_error"));
         return;

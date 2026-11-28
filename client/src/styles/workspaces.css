@@ -8,6 +8,7 @@
   --ws-accent-strong: #2f5e43;
   --ws-accent-soft: #e6f0ea;
   --ws-danger: #c94a44;
+  --ws-danger-soft: #fbeaea;
   --ws-warn: #b7791f;
   --ws-warn-soft: #fdf3e1;
   --ws-surface: #fff;
@@ -23,6 +24,11 @@
   --ws-space-4: 16px;
   --ws-focus: 0 0 0 3px rgba(69, 129, 92, 0.35);
   --ws-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  /* Ring around avatars of people viewing a card right now. */
+  --ws-viewer: #f0ad4e;
+  /* Loading skeleton shimmer. */
+  --ws-skeleton: #dcdfe3;
+  --ws-skeleton-hi: #eceef1;
 }
 
 /*

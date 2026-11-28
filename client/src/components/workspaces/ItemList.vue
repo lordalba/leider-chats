@@ -29,6 +29,7 @@
         v-for="item in items"
         :key="item._id"
         class="item-row"
+        :data-item-id="String(item._id)"
         :class="{ selected: String(item._id) === String(selectedId) }"
       >
         <form
@@ -154,6 +155,18 @@ export default {
       return out;
     },
   },
+  watch: {
+    // The item being renamed was deleted (here or by someone else).
+    items(list) {
+      if (this.renamingId && !list.some((i) => String(i._id) === this.renamingId)) {
+        this.cancelRename();
+      }
+    },
+  },
+  beforeDestroy() {
+    // Removing the focused input fires blur: that's not a save.
+    this.renamingId = null;
+  },
   methods: {
     // Called by the parent's "New document/whiteboard" empty-state button.
     focusCreate() {
@@ -209,6 +222,9 @@ export default {
         title: `Delete ${this.kind}?`,
         message: `“${item.title}” will be deleted for everyone in this workspace.`,
         okTitle: "Delete",
+        returnFocus: this.$el.querySelector(
+          `[data-item-id="${String(item._id)}"] .item-menu-toggle`
+        ),
       });
       if (ok) this.$emit("delete", String(item._id));
     },

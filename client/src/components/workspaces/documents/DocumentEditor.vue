@@ -179,6 +179,8 @@ export default {
     this.provider.resync();
   },
   beforeDestroy() {
+    // Removing the focused input fires blur: that's not a save.
+    this.renaming = false;
     // Order matters: binding first (it listens to both), then provider, then doc.
     if (this.binding) this.binding.destroy();
     if (this.provider) this.provider.destroy();
@@ -205,7 +207,8 @@ export default {
       if (!this.renaming) return;
       this.renaming = false;
       const title = this.draftTitle.trim();
-      if (title && title !== this.title) this.$emit("rename", title);
+      // The id is this editor's own: the route may already point elsewhere.
+      if (title && title !== this.title) this.$emit("rename", this.docId, title);
     },
     onError(error) {
       const code = error && error.message;
@@ -307,7 +310,7 @@ export default {
   color: var(--ws-warn);
 }
 .doc-sync.tone-error {
-  background: #fbeaea;
+  background: var(--ws-danger-soft);
   color: var(--ws-danger);
 }
 /* The toolbar stays put; only the text area scrolls. */

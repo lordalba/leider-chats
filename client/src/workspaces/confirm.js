@@ -4,9 +4,11 @@
  * Resolves true only when the user clicks the confirm button.
  *
  * @param bvModal  `this.$bvModal` of the calling component
- * @param {{ title: string, message: string, okTitle: string }} ask
+ * @param {{ title: string, message: string, okTitle: string, returnFocus?: Element }} ask
+ *   returnFocus: where focus goes when the box closes. Pass the menu toggle
+ *   when asking from a dropdown item, which is hidden by then.
  */
-export async function confirmDanger(bvModal, { title, message, okTitle }) {
+export async function confirmDanger(bvModal, { title, message, okTitle, returnFocus }) {
   try {
     const value = await bvModal.msgBoxConfirm(message, {
       title,
@@ -16,7 +18,8 @@ export async function confirmDanger(bvModal, { title, message, okTitle }) {
       cancelVariant: "outline-secondary",
       centered: true,
       contentClass: "ws-scope",
-      returnFocus: typeof document !== "undefined" ? document.activeElement : undefined,
+      returnFocus:
+        returnFocus || (typeof document !== "undefined" ? document.activeElement : undefined),
     });
     return value === true;
   } catch {

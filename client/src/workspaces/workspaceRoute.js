@@ -25,3 +25,17 @@ export function workspacePath({ workspaceId, tab = "tasks", itemId } = {}) {
   if (!SLUGS.includes(tab) || tab === "tasks") return base;
   return itemId ? `${base}/${tab}/${itemId}` : `${base}/${tab}`;
 }
+
+/**
+ * The tidy path for a workspace URL that isn't (an unknown tab, or an item id
+ * on the tasks tab), or null when it already is.
+ */
+export function canonicalWorkspacePath(params = {}) {
+  if (!params.workspaceId) return null;
+  const parsed = parseWorkspaceRoute(params);
+  const canonical = workspacePath(parsed);
+  const given = workspacePath({ workspaceId: params.workspaceId, tab: params.tab, itemId: params.itemId });
+  const unknownTab = params.tab && params.tab !== parsed.tab;
+  const strayItem = parsed.tab === "tasks" && (params.tab || params.itemId);
+  return unknownTab || strayItem || given !== canonical ? canonical : null;
+}

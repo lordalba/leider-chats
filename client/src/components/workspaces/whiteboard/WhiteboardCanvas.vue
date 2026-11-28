@@ -459,6 +459,7 @@ export default {
         title: "Clear the whiteboard?",
         message: "Every stroke will be removed for everyone.",
         okTitle: "Clear board",
+        returnFocus: this.$el.querySelector(".wb-more .dropdown-toggle"),
       });
       if (!ok || !this.opened) return;
       try {
@@ -645,7 +646,7 @@ export default {
   color: var(--ws-warn);
 }
 .wb-status.tone-error {
-  background: #fbeaea;
+  background: var(--ws-danger-soft);
   color: var(--ws-danger);
 }
 .wb-retry {

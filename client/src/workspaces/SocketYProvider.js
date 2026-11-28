@@ -172,6 +172,10 @@ export class SocketYProvider {
       return;
     }
     if (FATAL_ERRORS.has(code)) {
+      // Given up: no retry is pending any more.
+      this.retries = 0;
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
       this.synced = false;
       this.emitStatus();
       this.emitLocal("error", error);

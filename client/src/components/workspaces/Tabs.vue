@@ -34,7 +34,8 @@ export default {
       event.preventDefault();
       const index = this.tabs.findIndex((t) => t.slug === this.value);
       const next = (index + step + this.tabs.length) % this.tabs.length;
-      this.$emit("input", this.tabs[next].slug);
+      // Arrowing through tabs is browsing: don't fill Back with every tab.
+      this.$emit("input", this.tabs[next].slug, { replace: true });
       this.$nextTick(() => this.$refs.tab[next] && this.$refs.tab[next].focus());
     },
   },

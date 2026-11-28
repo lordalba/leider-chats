@@ -338,3 +338,20 @@ describe("SocketYProvider status events", () => {
     expect(p.states.length).toBe(count);
   });
 });
+
+describe("SocketYProvider after a fatal error", () => {
+  it("does not keep saying retrying once it has given up", async () => {
+    const hub = new FakeHub();
+    const socket = hub.socket();
+    const ydoc = new Y.Doc();
+    const provider = new SocketYProvider(socket, DOC, ydoc);
+    await provider.connect();
+    // A transient failure starts the backoff...
+    provider.onFailed(new Error("server_error"), provider.connectSeq);
+    expect(provider.status().retrying).toBe(true);
+    // ...then the session expires: no more retries.
+    provider.onFailed(new Error("unauthenticated"), provider.connectSeq);
+    expect(provider.status().retrying).toBe(false);
+    provider.destroy();
+  });
+});

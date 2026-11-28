@@ -85,6 +85,7 @@ export default {
         title: `Delete “${this.workspace.name}”?`,
         message: "Its tasks, documents and whiteboards will be deleted for everyone.",
         okTitle: "Delete workspace",
+        returnFocus: this.$el.querySelector(".ws-header-menu"),
       });
       if (ok) this.$emit("delete", String(this.workspace._id));
     },

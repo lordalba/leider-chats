@@ -42,7 +42,7 @@
           :title="selectedDoc.title"
           :viewers="docViewers"
           :connectedUser="connectedUser"
-          @rename="(title) => renameItem('document', selectedDocId, title)"
+          @rename="(id, title) => renameItem('document', id, title)"
           @closed="closeItem"
         />
         <EmptyState
@@ -133,7 +133,12 @@ import DocumentEditor from "@/components/workspaces/documents/DocumentEditor.vue
 import WhiteboardCanvas from "@/components/workspaces/whiteboard/WhiteboardCanvas.vue";
 import { emitWithAck } from "@/workspaces/socketCall";
 import { itemErrorMessage, viewersById } from "@/workspaces/items";
-import { TABS, parseWorkspaceRoute, workspacePath } from "@/workspaces/workspaceRoute";
+import {
+  TABS,
+  canonicalWorkspacePath,
+  parseWorkspaceRoute,
+  workspacePath,
+} from "@/workspaces/workspaceRoute";
 
 // Socket event prefix and detail list per item kind.
 const ITEM_KINDS = {
@@ -172,6 +177,8 @@ export default {
       // Last item that was actually open: tells "was deleted" (it vanished
       // while open) from "no longer exists" (a stale link).
       seenItemId: null,
+      // An item I'm deleting: its removal isn't news to me.
+      deletingItemId: null,
     };
   },
   computed: {
@@ -266,11 +273,24 @@ export default {
     openedItem(item) {
       if (item) this.seenItemId = this.route.itemId;
     },
+    // Tidy a mistyped tab (or an item id on Tasks) in the URL.
+    $route: {
+      immediate: true,
+      handler(route) {
+        const path = canonicalWorkspacePath(route.params);
+        if (path) this.$router.replace(path).catch(() => {});
+      },
+    },
     missingItem: {
       immediate: true,
       handler(missing) {
         if (!missing) return;
         const kind = this.openKind;
+        if (this.route.itemId === this.deletingItemId) {
+          // My own delete: its broadcast beat the ack. Just close it.
+          this.closeItem();
+          return;
+        }
         // Deleted while open (here or by someone else), or a stale link.
         const text =
           this.seenItemId === this.route.itemId
@@ -296,8 +316,8 @@ export default {
       // Duplicate/aborted navigations reject in vue-router 3; nothing to do.
       return this.$router[replace ? "replace" : "push"](path).catch(() => {});
     },
-    setActiveTab(tab) {
-      this.go({ tab });
+    setActiveTab(tab, { replace = false } = {}) {
+      this.go({ tab }, replace);
     },
     // Close the open item without leaving a history entry for it.
     closeItem() {
@@ -335,7 +355,13 @@ export default {
     },
     async deleteItem(kind, id) {
       // Close it only once the delete succeeded; on failure it stays open.
-      const result = await this.callItem(kind, "delete", null, id);
+      this.deletingItemId = id;
+      let result;
+      try {
+        result = await this.callItem(kind, "delete", null, id);
+      } finally {
+        this.deletingItemId = null;
+      }
       if (!result) return;
       // Leave the URL first so the vanished item isn't reported as missing.
       if (id === this.route.itemId) await this.closeItem();
@@ -374,7 +400,7 @@ export default {
 .ws-skeleton > div,
 .ws-skeleton-column {
   border-radius: var(--ws-radius);
-  background: linear-gradient(90deg, #dcdfe3 0%, #eceef1 50%, #dcdfe3 100%);
+  background: linear-gradient(90deg, var(--ws-skeleton) 0%, var(--ws-skeleton-hi) 50%, var(--ws-skeleton) 100%);
   background-size: 200% 100%;
   animation: ws-shimmer 1.4s ease-in-out infinite;
 }

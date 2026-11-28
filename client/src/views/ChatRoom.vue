@@ -95,13 +95,17 @@ export default {
       isSidebarOpen: false,
       // Top-bar "Workspaces" button: its count, and whether it opened the drawer.
       workspaceCount: 0,
-      focusWorkspaces: false,
+      focusWorkspaces: 0,
     };
+  },
+  beforeDestroy() {
+    if (this.socket) this.socket.off("chat:workspaces-changed", this.onWorkspacesChanged);
   },
   async mounted() {
     await this.initializeChatrooms();
 
     if (this.socket) {
+      this.socket.on("chat:workspaces-changed", this.onWorkspacesChanged);
       this.socket.on("chatroom-created", () => {
         this.initializeChatrooms();
       });
@@ -199,7 +203,7 @@ export default {
       this.prevChatroomId = this.selectedChatroomId;
       this.selectedChatroomId = chatroomId;
       this.participantsAmount = this.calculateParticipantsAmount();
-      this.focusWorkspaces = false;
+      this.focusWorkspaces = 0;
       this.loadWorkspaceCount();
 
       if (this.socket) {
@@ -243,13 +247,19 @@ export default {
     },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
-      this.focusWorkspaces = false;
+      this.focusWorkspaces = 0;
       // The drawer can create workspaces: refresh the count when it closes.
       if (!this.isSidebarOpen) this.loadWorkspaceCount();
     },
     openWorkspaces() {
       this.isSidebarOpen = true;
-      this.focusWorkspaces = true;
+      this.focusWorkspaces++;
+    },
+    // Someone created/renamed/deleted a workspace in one of my chats.
+    onWorkspacesChanged(payload) {
+      if (payload && String(payload.chatRoomId) === String(this.selectedChatroomId)) {
+        this.loadWorkspaceCount();
+      }
     },
     async loadWorkspaceCount() {
       const chatId = this.selectedChatroomId;
