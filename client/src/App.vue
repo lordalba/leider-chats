@@ -34,7 +34,7 @@ export default {
   display: flex;
   flex-direction: column;
   min-height: 100vh; /* Full height of the viewport */
-  background-color: #e8e8e8;
+  background-color: var(--bg);
   font-family: "Lexend", sans-serif;
 }
 
@@ -45,8 +45,8 @@ export default {
 .footer {
   text-align: center;
   padding: 13px;
-  background-color: #f1f1f1;
-  color: #555;
+  background-color: var(--sunken);
+  color: var(--muted);
 }
 </style>
 
@@ -66,7 +66,7 @@ export default {
 
 .sidebar {
   height: 100vh; /* Full height */
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 0 5px var(--shadow);
 }
 
 .main-content {

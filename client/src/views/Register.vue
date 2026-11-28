@@ -197,7 +197,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(26, 18, 13, 0.75);
 }
 
 .form-container {
@@ -215,12 +215,12 @@ export default {
   width: 100%;
   max-width: 600px;
   text-align: center;
-  color: #333;
+  color: var(--ink);
 }
 
 .start-text {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--muted);
   margin-bottom: 10px;
 }
 
@@ -230,17 +230,17 @@ h1 {
 }
 
 h1 .highlight {
-  color: #1a5f2d;
+  color: var(--ink);
 }
 
 .login-text {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--muted);
   margin-bottom: 20px;
 }
 
 .login-link {
-  color: #5daa73;
+  color: var(--brand-text);
   text-decoration: none;
 }
 
@@ -253,9 +253,9 @@ h1 .highlight {
   width: 100%;
   padding: 12px;
   border-radius: 5px;
-  border: 1px solid #ddd;
-  background-color: #fafafa;
-  color: #333;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  color: var(--ink);
 }
 
 .password .input-field {
@@ -269,7 +269,7 @@ h1 .highlight {
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: #666;
+  color: var(--muted);
   cursor: pointer;
 }
 
@@ -284,14 +284,14 @@ h1 .highlight {
   padding: 15px;
   border-radius: 5px;
   border: none;
-  background-color: #298b3a;
+  background-color: var(--brand-strong);
   color: white;
   font-size: 1rem;
   cursor: pointer;
 }
 
 .submit-btn:hover:not(:disabled) {
-  background-color: #30924c;
+  background-color: var(--brand-hover);
 }
 
 .submit-btn:disabled {

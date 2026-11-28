@@ -271,7 +271,7 @@ export default {
   border-left: 3px solid transparent;
 }
 .item-row:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(43, 29, 20, 0.04);
 }
 .item-row.selected {
   background: var(--ws-accent-soft);
@@ -319,6 +319,6 @@ export default {
 }
 .item-menu ::v-deep .item-menu-toggle:hover {
   color: var(--ws-text);
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(43, 29, 20, 0.06);
 }
 </style>

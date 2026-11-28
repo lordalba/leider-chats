@@ -91,7 +91,7 @@ export default {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,7 +103,7 @@ export default {
   width: 80%;
   max-width: 600px;
   padding: 20px;
-  background: white;
+  background: var(--raised);
   overflow: hidden;
   border-radius: 10px;
 }
@@ -120,12 +120,12 @@ export default {
   overflow-y: auto;
   max-height: 100px;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--line);
   border-radius: 5px;
   display: block;
   margin: 5px 0;
   padding: 8px;
-  border: 2px solid rgb(204, 204, 204);
+  border: 2px solid var(--line);
   border-radius: 45px;
   font-size: 16px;
 }
@@ -137,7 +137,7 @@ export default {
 .profile-picture {
   width: 30px; /* Adjust size */
   height: 30px; /* Adjust size */
-  border: 1px solid #555;
+  border: 1px solid var(--line-strong);
   border-radius: 50%; /* Circular picture */
   margin: 2px; /* Center the picture and pull it up */
   object-fit: cover; /* Ensure the picture covers the area */

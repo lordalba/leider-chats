@@ -1,0 +1,127 @@
+/* Sunset Vinyl palette — cream, tangerine, espresso brown and a touch of plum.
+   Use these variables instead of hard-coded colors. */
+:root {
+  /* surfaces */
+  --bg: #FBF5EC;            /* cream page background */
+  --surface: #FFFDF8;       /* cards, header, inputs */
+  --raised: #FFFFFF;        /* modals, popovers */
+  --sunken: #F3E8D8;        /* sidebars, chips, hover fills */
+  --line: #E8D9C4;          /* borders, dividers */
+  --line-strong: #D9C4AE;
+
+  /* text */
+  --ink: #2B1D14;           /* espresso: body text and headings */
+  --muted: #6E5747;         /* timestamps, secondary text */
+  --cocoa: #6E4A35;         /* brown accents, secondary buttons */
+
+  /* brand orange */
+  --brand: #F26B1D;         /* tangerine: logo, highlights, progress */
+  --brand-strong: #D4500C;  /* buttons with white text */
+  --brand-hover: #C2470A;
+  --brand-text: #C2470A;    /* orange text on cream */
+  --brand-soft: #FFE3CC;    /* my message bubbles, active items */
+  --on-brand: #FFFFFF;
+  --apricot: #F7A54A;
+
+  /* plum (use sparingly) */
+  --plum: #6B4FA0;          /* links, mentions, online dot */
+  --plum-strong: #4E3A80;
+  --plum-soft: #EFE9F7;
+
+  /* feedback */
+  --danger: #B8392B;
+  --danger-hover: #962D22;
+
+  --overlay: rgba(26, 18, 13, 0.55);
+  --shadow: rgba(43, 29, 20, 0.12);
+}
+
+[data-theme="dark"] {
+  --bg: #1A120D;
+  --surface: #241912;
+  --raised: #31231A;
+  --sunken: #140E0A;
+  --line: #45332A;
+  --line-strong: #5A4436;
+  --ink: #F6EBDD;
+  --muted: #B39C88;
+  --cocoa: #A0826D;
+  --brand: #FF8A3D;
+  --brand-strong: #FF8A3D;
+  --brand-hover: #FFA466;
+  --brand-text: #FF8A3D;
+  --brand-soft: #4A2A17;
+  --on-brand: #1A120D;
+  --apricot: #F7A54A;
+  --plum: #B69BE0;
+  --plum-strong: #CDB8EE;
+  --plum-soft: #2E2438;
+  --danger: #E2675A;
+  --danger-hover: #EE8B80;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow: rgba(0, 0, 0, 0.35);
+}
+
+/* Bootstrap / BootstrapVue alignment */
+:root {
+  --bs-body-bg: var(--bg);
+  --bs-body-color: var(--ink);
+  --bs-border-color: var(--line);
+  --bs-primary: #D4500C;
+  --bs-primary-rgb: 212, 80, 12;
+  --bs-secondary: #6E4A35;
+  --bs-secondary-rgb: 110, 74, 53;
+  --bs-danger: #B8392B;
+  --bs-danger-rgb: 184, 57, 43;
+  --bs-link-color: #6B4FA0;
+  --bs-link-color-rgb: 107, 79, 160;
+  --bs-link-hover-color: #4E3A80;
+  --bs-link-hover-color-rgb: 78, 58, 128;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--brand-strong);
+  --bs-btn-border-color: var(--brand-strong);
+  --bs-btn-color: var(--on-brand);
+  --bs-btn-hover-bg: var(--brand-hover);
+  --bs-btn-hover-border-color: var(--brand-hover);
+  --bs-btn-hover-color: var(--on-brand);
+  --bs-btn-active-bg: var(--brand-hover);
+  --bs-btn-active-border-color: var(--brand-hover);
+  --bs-btn-disabled-bg: var(--brand-strong);
+  --bs-btn-disabled-border-color: var(--brand-strong);
+  --bs-btn-focus-shadow-rgb: 242, 107, 29;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--brand-text);
+  --bs-btn-border-color: var(--brand-strong);
+  --bs-btn-hover-bg: var(--brand-strong);
+  --bs-btn-hover-border-color: var(--brand-strong);
+  --bs-btn-hover-color: var(--on-brand);
+  --bs-btn-active-bg: var(--brand-hover);
+  --bs-btn-active-color: var(--on-brand);
+}
+
+.btn-secondary {
+  --bs-btn-bg: var(--cocoa);
+  --bs-btn-border-color: var(--cocoa);
+  --bs-btn-hover-bg: var(--ink);
+  --bs-btn-hover-border-color: var(--ink);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 0.2rem rgba(242, 107, 29, 0.25);
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--ink);
+}

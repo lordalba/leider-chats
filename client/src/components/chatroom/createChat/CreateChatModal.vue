@@ -179,7 +179,7 @@ export default {
 input[type="text"] {
   width: 100%;
   padding: 10px;
-  border: 2px solid #ccc;
+  border: 2px solid var(--line);
   border-radius: 4px;
   font-size: 16px;
   box-sizing: border-box;
@@ -187,7 +187,7 @@ input[type="text"] {
 }
 
 input[type="text"]:focus {
-  border-color: #4a90e2;
+  border-color: var(--brand);
   outline: none;
 }
 
@@ -209,7 +209,7 @@ input[type="file"] {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -220,7 +220,7 @@ input[type="file"] {
   width: 80%;
   max-width: 600px;
   padding: 20px;
-  background: white;
+  background: var(--raised);
   overflow: hidden;
   border-radius: 45px;
 }
@@ -230,19 +230,19 @@ input[type="file"] {
 }
 
 .member-selection::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--sunken);
   border-radius: 10px;
 }
 
 .member-selection::-webkit-scrollbar-thumb {
-  background-color: #a3ceff;
+  background-color: var(--brand-soft);
   border-radius: 10px;
-  border: 2px solid #f1f1f1;
+  border: 2px solid var(--sunken);
 }
 
 .member-selection {
   scrollbar-width: thin;
-  scrollbar-color: #82b7f3 #f1f1f1;
+  scrollbar-color: var(--apricot) var(--sunken);
 }
 
 .slides {
@@ -266,7 +266,7 @@ input[type="file"] {
   display: block;
   margin: 5px 0;
   padding: 8px;
-  border: 2px solid rgb(204, 204, 204);
+  border: 2px solid var(--line);
   border-radius: 45px;
   font-size: 30px;
 }
@@ -274,7 +274,7 @@ input[type="file"] {
 .profile-picture {
   width: 70px; /* Adjust size */
   height: 70px; /* Adjust size */
-  border: 2px solid #555;
+  border: 2px solid var(--line-strong);
   border-radius: 50%; /* Circular picture */
   margin: 5px; /* Center the picture and pull it up */
   object-fit: cover; /* Ensure the picture covers the area */
@@ -292,12 +292,12 @@ input[type="file"] {
 }
 
 .nav-button {
-  background-color: #fff;
-  border: 1px solid #d5d9d9;
+  background-color: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: rgba(213, 217, 217, 0.5) 0 2px 5px 0;
+  box-shadow: var(--shadow) 0 2px 5px 0;
   box-sizing: border-box;
-  color: #0f1111;
+  color: var(--ink);
   cursor: pointer;
   display: inline-block;
   font-family: "Amazon Ember", sans-serif;
@@ -316,17 +316,17 @@ input[type="file"] {
 }
 
 .nav-button:hover {
-  background-color: #f7fafa;
+  background-color: var(--surface);
 }
 
 .nav-button:focus {
-  border-color: #008296;
-  box-shadow: rgba(213, 217, 217, 0.5) 0 2px 5px 0;
+  border-color: var(--brand);
+  box-shadow: var(--shadow) 0 2px 5px 0;
   outline: 0;
 }
 
 #next-btn {
-  background-color: #1874fc !important;
-  color: white;
+  background-color: var(--brand-strong) !important;
+  color: var(--on-brand);
 }
 </style>

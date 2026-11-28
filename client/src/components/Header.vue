@@ -77,7 +77,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 15px;
-  background-color: #f1f1f1;
+  background-color: var(--sunken);
 }
 .logo {
   font-weight: bold;
@@ -94,7 +94,7 @@ export default {
 }
 
 .menu-item {
-  color: #000000;
+  color: var(--ink);
   text-transform: uppercase;
   text-decoration: none;
   letter-spacing: 0.15em;
@@ -111,7 +111,7 @@ export default {
   height: 2px;
   left: 50%;
   position: absolute;
-  background: #000000;
+  background: var(--brand);
   transition: width 0.3s ease 0s, left 0.3s ease 0s;
   width: 0;
 }

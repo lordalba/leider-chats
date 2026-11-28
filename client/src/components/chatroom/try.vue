@@ -115,8 +115,8 @@
     display: flex;
     align-items: center;
     padding: 10px;
-    background: #f7f7f7;
-    border-bottom: 1px solid #ddd;
+    background: var(--sunken);
+    border-bottom: 1px solid var(--line);
     cursor: pointer;
   }
   .chatroom-image {

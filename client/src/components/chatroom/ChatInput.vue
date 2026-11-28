@@ -287,7 +287,7 @@ export default {
 <style scoped>
 .chat-input {
   padding: 10px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--line);
 }
 
 .input-wrapper {
@@ -301,7 +301,7 @@ input[type="text"] {
   padding: 10px;
   font-size: 16px;
   border-radius: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--line);
 }
 
 .file-upload-label {
@@ -317,7 +317,7 @@ input[type="text"] {
   align-items: center;
   font-style: italic;
   font-size: 0.9em;
-  color: #666;
+  color: var(--muted);
 }
 
 .dot {
@@ -363,7 +363,7 @@ input[type="text"] {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  background-color: #13a749; /* WhatsApp green */
+  background-color: var(--brand-strong); /* WhatsApp green */
   border: none;
   border-radius: 50%;
   width: 60px;
@@ -372,8 +372,8 @@ input[type="text"] {
   align-items: center;
   justify-content: center;
   font-size: 24px;
-  color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  color: var(--on-brand);
+  box-shadow: 0 4px 6px var(--shadow);
   cursor: pointer;
   transition: transform 0.3s ease;
 }
@@ -387,10 +387,10 @@ input[type="text"] {
 .file-preview {
   margin-top: 10px;
   padding: 10px;
-  background-color: #f1f1f1;
+  background-color: var(--sunken);
   border-radius: 5px;
   font-size: 14px;
-  color: #555;
+  color: var(--muted);
   max-width: 100%;
   word-wrap: break-word;
 }
@@ -402,7 +402,7 @@ input[type="text"] {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -410,7 +410,7 @@ input[type="text"] {
 }
 
 .modal-content {
-  background: #fff;
+  background: var(--surface);
   padding: 20px;
   border-radius: 10px;
   width: 90%;
@@ -438,17 +438,17 @@ input[type="text"] {
 }
 
 .modal-actions button:first-child {
-  background-color: #ddd;
+  background-color: var(--line);
 }
 
 .modal-actions button:last-child {
-  background-color: #13a749;
-  color: #fff;
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
 }
 
 .send-location-button {
-  background-color: #ff5722;
-  color: white;
+  background-color: var(--brand);
+  color: var(--on-brand);
   border: none;
   border-radius: 10px;
   padding: 10px;

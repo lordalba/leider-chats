@@ -60,24 +60,24 @@ export default {
   max-width: 100%;
   margin: 3% auto;
   padding: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  background-color: #f5f5f5;
+  box-shadow: 0 2px 4px var(--shadow);
+  background-color: var(--sunken);
 }
 
 .search-input {
   width: 100%;
   padding: 12px;
   font-size: 16px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--line);
   border-radius: 4px;
   box-sizing: border-box;
   transition: border-color 0.3s ease-in-out;
 }
 
 .search-input:focus {
-  border-color: #815ffc; /* Green focus color */
+  border-color: var(--brand); /* Green focus color */
 }
 
 ul {
@@ -90,7 +90,7 @@ ul {
   display: flex;
   align-items: center;
   padding: 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
 }
 
@@ -108,27 +108,27 @@ ul {
 
 .add-friend-btn {
   padding: 8px 12px;
-  border: 1px solid #5a15b4;
+  border: 1px solid var(--brand-hover);
   border-radius: 4px;
-  background-color: #815ffc;
-  color: white;
+  background-color: var(--brand);
+  color: var(--on-brand);
   font-size: 14px;
   cursor: pointer;
   transition: background-color 0.3s ease-in-out;
 }
 
 .add-friend-btn:hover {
-  background-color: #6444d8;
+  background-color: var(--brand-hover);
 }
 
 .friend-added {
-  color: #999;
+  color: var(--muted);
   font-style: italic;
 }
 
 .no-results {
   text-align: center;
   padding: 10px;
-  color: #666;
+  color: var(--muted);
 }
 </style>

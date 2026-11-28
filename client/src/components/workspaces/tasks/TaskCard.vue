@@ -106,7 +106,7 @@ export default {
   padding: 8px 10px;
   margin-bottom: 8px;
   cursor: grab;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(43, 29, 20, 0.06);
 }
 .task-card:hover {
   border-color: var(--ws-accent);

@@ -28,7 +28,9 @@ Vue.use(VueHead)
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue/dist/bootstrap-vue.css'
 import 'sweetalert2/dist/sweetalert2.min.css';
-// Workspace design tokens; after Bootstrap so its overrides win.
+// App color palette (Sunset Vinyl); after Bootstrap so its overrides win.
+import './styles/theme.css';
+// Workspace design tokens, mapped onto the palette.
 import './styles/workspaces.css';
 
 // Make BootstrapVue available throughout your project

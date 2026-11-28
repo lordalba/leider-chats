@@ -85,7 +85,7 @@ export default {
 <style scoped>
 .friend-requests-sidebar {
   flex: 1;
-  background-color: #f9f9f9;
+  background-color: var(--surface);
   padding: 20px;
   border-radius: 8px;
   margin-right: 14%;
@@ -98,8 +98,8 @@ export default {
   padding: 10px;
   margin-top: 4%;
   margin-left: 20%;
-  background-color: #65acf8;
-  color: white;
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
   border: none;
   border-radius: 5px;
   text-align: center;
@@ -116,8 +116,8 @@ export default {
   padding: 10px;
   margin-bottom: 10px;
   border-radius: 5px;
-  background-color: #fff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  background-color: var(--surface);
+  box-shadow: 0 2px 5px var(--shadow);
 }
 
 .request-buttons {
@@ -125,8 +125,8 @@ export default {
 }
 
 .accept-btn {
-  background-color: #28a745;
-  color: white;
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
   padding: 5px 10px;
   border: none;
   border-radius: 3px;
@@ -134,8 +134,8 @@ export default {
 }
 
 .decline-btn {
-  background-color: #dc3545;
-  color: white;
+  background-color: var(--danger);
+  color: var(--on-brand);
   padding: 5px 10px;
   border: none;
   border-radius: 3px;

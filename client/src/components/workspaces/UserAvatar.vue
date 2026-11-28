@@ -68,14 +68,14 @@ export default {
 .user-avatar {
   flex-shrink: 0;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: 2px solid var(--line);
   overflow: hidden;
-  color: #fff;
+  color: var(--on-brand);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(43, 29, 20, 0.2);
 }
 .user-avatar img {
   width: 100%;

@@ -344,7 +344,7 @@ export default {
   text-align: left;
 }
 .add-task:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(43, 29, 20, 0.05);
   color: var(--ws-text);
 }
 .quick-add-actions {

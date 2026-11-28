@@ -170,7 +170,7 @@ export default {
   text-decoration: none;
 }
 .workspace-row:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(43, 29, 20, 0.04);
   color: var(--ws-text);
 }
 .workspace-row.active {

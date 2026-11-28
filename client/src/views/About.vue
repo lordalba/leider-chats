@@ -31,13 +31,13 @@ export default {
   align-items: center;
   padding: 20px;
   gap: 20px;
-  background-color: #f9f9f9;
+  background-color: var(--surface);
 }
 
 .content-section {
   display: flex;
   padding: 20px;
   gap: 40px;
-  background-color: #ffffff;
+  background-color: var(--surface);
 }
 </style>

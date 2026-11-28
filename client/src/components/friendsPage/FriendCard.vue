@@ -69,18 +69,18 @@ export default {
   justify-content: space-between;
   width: 900px; /* Wider */
   padding: 10px;
-  background-color: #fff;
+  background-color: var(--surface);
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px var(--shadow);
   border-left: 8px solid;
   margin-top: 1%;
-  border-left: 8px solid #74aa6d;
+  border-left: 8px solid var(--brand);
 }
 
 .online-indicator {
   width: 10px;
   height: 10px;
-  background-color: green;
+  background-color: var(--plum);
   border-radius: 50%;
   position: absolute;
   top: 5px;
@@ -115,13 +115,13 @@ export default {
 }
 
 .profession {
-  color: #888;
+  color: var(--muted);
 }
 
 .languages,
 .timezone {
   font-size: 0.9em;
-  color: #666;
+  color: var(--muted);
 }
 
 .status-section {
@@ -137,11 +137,11 @@ export default {
 }
 
 .online {
-  background-color: #00ff00; /* Green for online */
+  background-color: var(--plum); /* Green for online */
 }
 
 .offline {
-  background-color: #888888; /* Gray for offline */
+  background-color: var(--line-strong); /* Gray for offline */
 }
 
 .details-section {
@@ -156,8 +156,8 @@ export default {
 }
 
 .visit-website {
-  background-color: #c43c3c;
-  color: rgb(0, 0, 0);
+  background-color: var(--danger);
+  color: var(--on-brand);
   padding: 7px 15px; /* More compact */
   border-radius: 5px;
   text-decoration: none;
@@ -172,8 +172,8 @@ export default {
 }
 
 .tag {
-  background-color: #9bb2ff;
-  color: #fff;
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
   padding: 5px 10px;
   border-radius: 20px;
   font-size: 0.85em;

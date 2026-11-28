@@ -56,7 +56,7 @@
             >
               <p
                 class="accordion-option"
-                style="border-bottom: 1px solid rgb(228, 228, 228)"
+                style="border-bottom: 1px solid var(--line)"
                 @click="messageParticipant(participant)"
               >
                 Send Message
@@ -64,7 +64,7 @@
               <p
                 v-if="isUserAdmin($store.state.connectedUser)"
                 class="accordion-option"
-                style="border-bottom: 1px solid rgb(228, 228, 228)"
+                style="border-bottom: 1px solid var(--line)"
                 @click="changeUserAdminStatus(participant)"
               >
                 {{`${isUserAdmin(participant) ? 'Remove' : 'Add'} Admin permissions`}} 
@@ -81,7 +81,7 @@
               Group Admin
             </div>
           </li>
-          <div style="border-bottom: 1px solid rgb(153, 153, 153)"></div>
+          <div style="border-bottom: 1px solid var(--line-strong)"></div>
           <div
             v-if="isUserAdmin($store.state.connectedUser)"
             class="permissions-details delete-chat-option"
@@ -321,8 +321,8 @@ export default {
   top: 0;
   width: 380px;
   height: 100vh;
-  background: #fff;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+  background: var(--surface);
+  box-shadow: -2px 0 5px var(--shadow);
   padding: 20px;
   overflow-y: auto;
 }
@@ -342,7 +342,7 @@ export default {
 
 .details {
   margin-bottom: 10%;
-  border-bottom: 1px solid rgb(155, 154, 154);
+  border-bottom: 1px solid var(--line-strong);
 }
 
 .sidebar-chatroom-image {
@@ -356,11 +356,11 @@ export default {
 .permissions-details {
   padding: 3%;
   cursor: pointer;
-  border-bottom: 1px solid rgb(223, 223, 223);
+  border-bottom: 1px solid var(--line);
 }
 
 .user-details:hover {
-  background-color: #e6e5e5;
+  background-color: var(--line);
 }
 
 .participant-image {
@@ -392,7 +392,7 @@ export default {
 
 .sidebar-content p {
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   text-align: center;
   margin: 5px 0;
 }
@@ -404,16 +404,16 @@ export default {
 
 #delete-chat-icon {
   margin-right: 10px;
-  color: #b81010;
+  color: var(--danger);
 }
 
 #permissions-icon {
   margin-right: 7px;
-  color: #3997d6;
+  color: var(--plum);
 }
 
 #delete-chat {
-  border-bottom: 1px solid rgb(223, 223, 223);
+  border-bottom: 1px solid var(--line);
 }
 
 
@@ -443,7 +443,7 @@ export default {
 
 .accordion-content {
   padding: 10px 15px;
-  background-color: #f9f9f9;
+  background-color: var(--surface);
   border-radius: 5px;
   margin-top: 5px;
   width: 100%;
@@ -453,19 +453,19 @@ export default {
 .accordion-option {
   cursor: pointer;
   margin: 5px 0;
-  color: #007bff;
+  color: var(--plum);
   font-weight: 500;
   transition: color 0.2s ease;
 }
 
 .accordion-option:hover {
-  color: #0056b3;
+  color: var(--plum-strong);
 }
 
 .admin-mark {
   margin-right: auto;
-  color: rgb(48, 138, 48);
-  background-color: #8cf394;
+  color: var(--plum);
+  background-color: var(--plum-soft);
   font-size: smaller;
   font-weight: 500;
   border-radius: 5%;

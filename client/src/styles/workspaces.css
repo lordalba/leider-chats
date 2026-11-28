@@ -4,31 +4,31 @@
  * Spec: docs/superpowers/specs/2026-11-27-workspaces-ux-audit.md
  */
 :root {
-  --ws-accent: #45815c;
-  --ws-accent-strong: #2f5e43;
-  --ws-accent-soft: #e6f0ea;
-  --ws-danger: #c94a44;
-  --ws-danger-soft: #fbeaea;
-  --ws-warn: #b7791f;
-  --ws-warn-soft: #fdf3e1;
-  --ws-surface: #fff;
-  --ws-surface-muted: #f4f5f7;
-  --ws-border: #e3e5e8;
-  --ws-text: #1f2328;
-  --ws-text-muted: #6b7280;
+  --ws-accent: var(--brand-strong);
+  --ws-accent-strong: var(--brand-hover);
+  --ws-accent-soft: var(--brand-soft);
+  --ws-danger: var(--danger);
+  --ws-danger-soft: #F8E4E0;
+  --ws-warn: #A8641A;
+  --ws-warn-soft: #FCEFD9;
+  --ws-surface: var(--surface);
+  --ws-surface-muted: var(--sunken);
+  --ws-border: var(--line);
+  --ws-text: var(--ink);
+  --ws-text-muted: var(--muted);
   --ws-radius-sm: 6px;
   --ws-radius: 8px;
   --ws-space-1: 4px;
   --ws-space-2: 8px;
   --ws-space-3: 12px;
   --ws-space-4: 16px;
-  --ws-focus: 0 0 0 3px rgba(69, 129, 92, 0.35);
-  --ws-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --ws-focus: 0 0 0 3px rgba(242, 107, 29, 0.35);
+  --ws-shadow: 0 1px 2px var(--shadow);
   /* Ring around avatars of people viewing a card right now. */
-  --ws-viewer: #f0ad4e;
+  --ws-viewer: var(--plum);
   /* Loading skeleton shimmer. */
-  --ws-skeleton: #dcdfe3;
-  --ws-skeleton-hi: #eceef1;
+  --ws-skeleton: var(--line);
+  --ws-skeleton-hi: var(--sunken);
 }
 
 /*
@@ -46,7 +46,7 @@
 .ws-scope .btn-primary.disabled {
   background-color: var(--ws-accent);
   border-color: var(--ws-accent);
-  color: #fff;
+  color: var(--on-brand);
 }
 .ws-scope .btn-primary:not(:disabled):hover,
 .ws-scope .btn-primary:not(:disabled):active {

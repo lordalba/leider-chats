@@ -332,16 +332,16 @@ export default {
 }
 
 .error {
-  color: red;
+  color: var(--danger);
 }
 
 .chatroom-top-bar {
   display: flex;
   align-items: center;
   padding: 10px;
-  background-color: #f7f7f7;
-  box-shadow: 0 24px 10px rgba(0.5, 0.1, 0.1, 0.1);
-  border-bottom: 1px solid rgb(223, 223, 223);
+  background-color: var(--sunken);
+  box-shadow: 0 24px 10px var(--shadow);
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
 }
 
@@ -364,7 +364,7 @@ export default {
 .chatroom-participants {
   margin: 0;
   font-size: 12px;
-  color: #666;
+  color: var(--muted);
 }
 
 .chat-workspaces-btn {
@@ -373,23 +373,23 @@ export default {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid #d0d5da;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
-  color: #1f2328;
+  background: var(--surface);
+  color: var(--ink);
   font-size: 14px;
   cursor: pointer;
 }
 .chat-workspaces-btn:hover {
-  border-color: #45815c;
-  color: #2f5e43;
+  border-color: var(--brand-hover);
+  color: var(--brand-text);
 }
 .chat-workspaces-count {
   min-width: 20px;
   padding: 0 6px;
   border-radius: 10px;
-  background: #e6f0ea;
-  color: #2f5e43;
+  background: var(--brand-soft);
+  color: var(--brand-text);
   font-size: 12px;
   line-height: 18px;
   text-align: center;

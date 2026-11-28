@@ -49,7 +49,7 @@ export default {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -57,12 +57,12 @@ export default {
 }
 
 .modal-content {
-  background: #fff;
+  background: var(--surface);
   padding: 20px;
   border-radius: 8px;
   width: 300px;
   text-align: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(43, 29, 20, 0.2);
 }
 
 .modal-actions {
@@ -72,8 +72,8 @@ export default {
 }
 
 .confirm-btn {
-  background: #d9534f;
-  color: white;
+  background: var(--danger);
+  color: var(--on-brand);
   border: none;
   padding: 10px 15px;
   border-radius: 4px;
@@ -81,12 +81,12 @@ export default {
 }
 
 .confirm-btn:hover {
-  background: #c9302c;
+  background: var(--danger-hover);
 }
 
 .cancel-btn {
-  background: #5bc0de;
-  color: white;
+  background: var(--cocoa);
+  color: var(--on-brand);
   border: none;
   padding: 10px 15px;
   border-radius: 4px;
@@ -94,6 +94,6 @@ export default {
 }
 
 .cancel-btn:hover {
-  background: #31b0d5;
+  background: var(--ink);
 }
 </style>

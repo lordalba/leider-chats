@@ -111,7 +111,7 @@ export default {
 .chat-workspaces {
   margin-bottom: 8%;
   padding-bottom: 4%;
-  border-bottom: 1px solid rgb(223, 223, 223);
+  border-bottom: 1px solid var(--line);
 }
 .chat-workspaces-header {
   display: flex;
@@ -123,7 +123,7 @@ export default {
   margin: 0;
 }
 .new-workspace-btn {
-  background-color: #45815c;
+  background-color: var(--brand-hover);
   color: white;
   border: none;
   border-radius: 5px;
@@ -145,7 +145,7 @@ export default {
   gap: 8px;
 }
 .chat-workspace-item:hover {
-  background-color: #e6e5e5;
+  background-color: var(--line);
 }
 .chat-workspaces-empty {
   opacity: 0.6;

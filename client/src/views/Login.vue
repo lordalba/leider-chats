@@ -122,12 +122,12 @@ export default {
   text-align: center;
 }
 h2 {
-  color: #1a5f2d;
+  color: var(--ink);
   font-size: 52px;
   margin-bottom: 10px;
 }
 p {
-  color: #666;
+  color: var(--muted);
   margin-bottom: 30px;
 }
 .input-group {
@@ -139,12 +139,12 @@ p {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: #aaa;
+  color: var(--muted);
 }
 input {
   width: 100%;
   padding: 10px 40px 10px 35px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--line);
   border-radius: 5px;
   font-size: 16px;
   outline: none;
@@ -156,7 +156,7 @@ input {
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: #888;
+  color: var(--muted);
   cursor: pointer;
   padding: 6px;
 }
@@ -168,15 +168,15 @@ input {
   width: 100%;
   padding: 12px;
   font-size: 16px;
-  color: #fff;
-  background-color: #298b3a;
+  color: var(--on-brand);
+  background-color: var(--brand-strong);
   border: none;
   border-radius: 5px;
   cursor: pointer;
   transition: background-color 0.3s;
 }
 .submit-btn:hover:not(:disabled) {
-  background-color: #30924c;
+  background-color: var(--brand-hover);
 }
 .submit-btn:disabled {
   opacity: 0.7;
@@ -184,10 +184,10 @@ input {
 }
 .signup-text {
   margin-top: 20px;
-  color: #666;
+  color: var(--muted);
 }
 .signup-text a {
-  color: #5daa73;
+  color: var(--brand-text);
   text-decoration: none;
 }
 </style>

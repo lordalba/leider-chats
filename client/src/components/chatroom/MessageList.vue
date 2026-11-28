@@ -193,8 +193,8 @@ export default {
   margin: 10px auto;
   padding: 5px 10px;
   font-size: 0.9em;
-  color: #3b3838;
-  background-color: #dfcece;
+  color: var(--ink);
+  background-color: var(--sunken);
   border-radius: 10px;
   text-align: center;
 }
@@ -209,8 +209,8 @@ export default {
 .system-message {
   text-align: center; /* Center text horizontally */
   font-style: italic;
-  color: rgb(34, 34, 34);
-  background-color: gray;
+  color: var(--ink);
+  background-color: var(--sunken);
   margin: 10px auto; /* Center the element itself horizontally */
   padding: 8px; /* Add padding to prevent text from touching edges */
   max-width: 300px;

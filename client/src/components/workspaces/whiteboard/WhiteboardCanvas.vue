@@ -325,7 +325,7 @@ export default {
       if (ctx.roundRect) ctx.roundRect(left, top, w, 20, 10);
       else ctx.rect(left, top, w, 20);
       ctx.fill();
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = "var(--on-brand)";
       ctx.textBaseline = "middle";
       ctx.fillText(name, left + 6, top + 10);
       ctx.restore();

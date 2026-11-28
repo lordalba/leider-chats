@@ -96,16 +96,16 @@ export default {
   display: flex;
   padding: 10px;
   cursor: pointer;
-  border-bottom: 1px solid rgb(230, 230, 230);
+  border-bottom: 1px solid var(--line);
   border-spacing: 10px;
 }
 
 .friend-item:hover {
-  background-color: #dddddd;
+  background-color: var(--line);
 }
 
 .friend-item:focus {
-  background-color: #dddddd;
+  background-color: var(--line);
 }
 
 .profile-picture-wrapper {
@@ -115,7 +115,7 @@ export default {
 .friend-avatar {
   width: 55px;
   height: 55px;
-  background-color: #bbbbbb;
+  background-color: var(--line);
   border-radius: 50%;
   margin-right: 10px;
   object-fit: cover;
@@ -128,15 +128,15 @@ export default {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  border: 2px solid white;
+  border: 2px solid var(--surface);
 }
 
 .status-dot.online {
-  background-color: #26f52d;
+  background-color: var(--plum);
 }
 
 .status-dot.offline {
-  background-color: #b8a9a8;
+  background-color: var(--line-strong);
 }
 
 .friend-info {
@@ -147,7 +147,7 @@ export default {
   font-weight: bold;
 }
 .friend-message {
-  color: #666;
+  color: var(--muted);
   font-size: 0.9em;
 }
 
@@ -158,8 +158,8 @@ export default {
   margin-top: 5%;
   width: 20px;
   height: 20px;
-  background-color: #1aa721;
-  color: rgb(255, 255, 255);
+  background-color: var(--brand-strong);
+  color: var(--on-brand);
   border-radius: 50%;
   font-size: 12px;
 }
