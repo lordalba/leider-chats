@@ -52,6 +52,17 @@ export function dropOrder(column, draggedId, index) {
   return orderBetween(prev && prev.order, next && next.order);
 }
 
+/** Options for a status select, in board order. */
+export function statusOptions() {
+  return STATUSES.map((value) => ({ value, text: STATUS_LABELS[value] }));
+}
+
+/** The order that puts `taskId` at the end of the `status` column. */
+export function appendOrder(columns, status, taskId) {
+  const column = (columns && columns[status]) || [];
+  return dropOrder(column, taskId, column.filter((task) => task._id !== taskId).length);
+}
+
 /**
  * Apply a `workspace:item` event `{action, item}` to a list, returning a new
  * array. created/updated replace the stored item by `_id` (an item older than

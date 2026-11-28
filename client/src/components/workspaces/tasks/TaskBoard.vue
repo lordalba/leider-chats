@@ -39,6 +39,7 @@
       :workspaceId="workspaceId"
       :participants="participants"
       :socket="socket"
+      :columns="columns"
       @item-event="(event) => $emit('item-event', event)"
       @hidden="onModalHidden"
     />

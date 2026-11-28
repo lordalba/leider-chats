@@ -2,6 +2,7 @@
   <b-modal
     :visible="visible"
     content-class="ws-scope"
+    scrollable
     :title="editing ? 'Edit task' : 'New task'"
     @show="resetForm"
     @hidden="onHidden"
@@ -17,6 +18,9 @@
           autofocus
         />
       </b-form-group>
+      <b-form-group label="Status" label-for="task-status">
+        <b-form-select id="task-status" v-model="taskStatus" :options="statusOptions" />
+      </b-form-group>
       <b-form-group label="Description (optional)" label-for="task-description">
         <b-form-textarea
           id="task-description"
@@ -25,14 +29,13 @@
           rows="4"
         />
       </b-form-group>
-      <b-form-group v-if="participantOptions.length" label="Assignees">
-        <b-form-checkbox-group v-model="assignedTo" :options="participantOptions" stacked />
+      <b-form-group v-if="participants.length" label="Assignees">
+        <AssigneePicker v-model="assignedTo" :participants="participants" :meId="meId" />
       </b-form-group>
       <b-form-group label="Due date (optional)" label-for="task-due">
         <b-form-input id="task-due" v-model="dueDate" type="date" />
       </b-form-group>
     </b-form>
-
 
     <template #modal-footer>
       <b-button
@@ -44,7 +47,7 @@
       >
         Delete
       </b-button>
-      <b-button variant="secondary" :disabled="busy" @click="close">Cancel</b-button>
+      <b-button variant="outline-secondary" :disabled="busy" @click="close">Cancel</b-button>
       <b-button variant="primary" :disabled="!trimmedTitle || busy" @click="submit">
         {{ editing ? "Save" : "Create" }}
       </b-button>
@@ -53,16 +56,20 @@
 </template>
 
 <script>
+import AssigneePicker from "@/components/workspaces/tasks/AssigneePicker.vue";
 import { confirmDanger } from "@/workspaces/confirm";
 import { emitWithAck } from "@/workspaces/socketCall";
 import {
+  appendOrder,
   dueDateToInput,
   inputToDueDate,
+  statusOptions,
   taskErrorMessage,
 } from "@/workspaces/taskBoard";
 
 export default {
   name: "TaskEditModal",
+  components: { AssigneePicker },
   props: {
     visible: {
       type: Boolean,
@@ -94,6 +101,11 @@ export default {
       type: Object,
       default: null,
     },
+    // The board's columns (groupTasks), to place a task moved by status.
+    columns: {
+      type: Object,
+      default: () => ({}),
+    },
   },
   data() {
     return {
@@ -101,6 +113,8 @@ export default {
       description: "",
       assignedTo: [],
       dueDate: "",
+      taskStatus: "todo",
+      statusOptions: statusOptions(),
       busy: false,
       deleting: false,
       // Field values as opened (edit mode), so a save sends only what this
@@ -115,11 +129,9 @@ export default {
     participantIds() {
       return this.participants.map((p) => String(p._id));
     },
-    participantOptions() {
-      return this.participants.map((p) => ({
-        value: String(p._id),
-        text: p.username,
-      }));
+    meId() {
+      const user = this.$store.state.connectedUser;
+      return user ? String(user._id) : null;
     },
   },
   watch: {
@@ -142,6 +154,7 @@ export default {
             .filter((id) => this.participantIds.includes(id))
         : [];
       this.dueDate = task ? dueDateToInput(task.dueDate) : "";
+      this.taskStatus = task ? task.status : this.status;
       this.busy = false;
       this.deleting = false;
       this.initialFields = task ? this.fields() : null;
@@ -179,15 +192,22 @@ export default {
         let item;
         if (this.editing) {
           if (!this.task) return;
+          const id = this.task._id;
           const patch = this.changedFields();
-          if (Object.keys(patch).length === 0) {
-            this.close();
-            return;
+          // task:update ignores status: a status change is a task:move to
+          // the end of the new column.
+          const moveTo = this.taskStatus !== this.task.status ? this.taskStatus : null;
+          if (Object.keys(patch).length) {
+            item = await emitWithAck(this.socket, "task:update", id, patch);
+            this.$emit("item-event", { action: "updated", item });
           }
-          item = await emitWithAck(this.socket, "task:update", this.task._id, patch);
-          this.$emit("item-event", { action: "updated", item });
+          if (moveTo) {
+            const order = appendOrder(this.columns, moveTo, id);
+            item = await emitWithAck(this.socket, "task:move", id, moveTo, order);
+            this.$emit("item-event", { action: "updated", item });
+          }
         } else {
-          const input = { ...this.fields(), status: this.status };
+          const input = { ...this.fields(), status: this.taskStatus };
           if (!input.description) delete input.description;
           item = await emitWithAck(this.socket, "task:create", this.workspaceId, input);
           this.$emit("item-event", { action: "created", item });

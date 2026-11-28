@@ -10,6 +10,8 @@ import {
   dueDateToInput,
   inputToDueDate,
   isOverdue,
+  statusOptions,
+  appendOrder,
 } from "../src/workspaces/taskBoard.js";
 
 const t = (id, status, order, extra = {}) => ({
@@ -167,5 +169,43 @@ describe("due dates", () => {
     expect(isOverdue({ status: "todo", dueDate: "2026-11-22T00:00:00.000Z" }, now)).toBe(false);
     expect(isOverdue({ status: "done", dueDate: "2026-11-01T00:00:00.000Z" }, now)).toBe(false);
     expect(isOverdue({ status: "todo", dueDate: null }, now)).toBe(false);
+  });
+});
+
+describe("statusOptions", () => {
+  it("lists the four statuses in board order with their labels", () => {
+    expect(statusOptions()).toEqual([
+      { value: "todo", text: "To do" },
+      { value: "inProgress", text: "In progress" },
+      { value: "verify", text: "Verify" },
+      { value: "done", text: "Done" },
+    ]);
+  });
+});
+
+describe("appendOrder", () => {
+  const columns = {
+    todo: [],
+    inProgress: [],
+    verify: [],
+    done: [t("d1", "done", 1000), t("d2", "done", 2000)],
+  };
+
+  it("gives a finite order in an empty column", () => {
+    expect(Number.isFinite(appendOrder(columns, "todo", "x"))).toBe(true);
+  });
+
+  it("puts the task after the last card", () => {
+    expect(appendOrder(columns, "done", "x")).toBeGreaterThan(2000);
+  });
+
+  it("ignores the task itself when it is already in the column", () => {
+    // d2 is last: moving it to the end of its own column lands after d1.
+    const order = appendOrder(columns, "done", "d2");
+    expect(order).toBeGreaterThan(1000);
+  });
+
+  it("treats a missing column as empty", () => {
+    expect(Number.isFinite(appendOrder({}, "todo", "x"))).toBe(true);
   });
 });
