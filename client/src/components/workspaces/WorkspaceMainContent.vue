@@ -24,7 +24,6 @@
           :items="detail.documents || []"
           :members="members"
           :selectedId="selectedDocId"
-          @select="openItem"
           @create="(title) => createItem('document', title)"
           @rename="(id, title) => renameItem('document', id, title)"
           @delete="(id) => deleteItem('document', id)"
@@ -55,7 +54,6 @@
           :items="detail.whiteboards || []"
           :members="members"
           :selectedId="selectedWbId"
-          @select="openItem"
           @create="(title) => createItem('whiteboard', title)"
           @rename="(id, title) => renameItem('whiteboard', id, title)"
           @delete="(id) => deleteItem('whiteboard', id)"
@@ -281,9 +279,6 @@ export default {
     },
     setActiveTab(tab) {
       this.go({ tab });
-    },
-    openItem(id) {
-      this.go({ tab: this.activeTab, itemId: id || null });
     },
     // Close the open item without leaving a history entry for it.
     closeItem() {

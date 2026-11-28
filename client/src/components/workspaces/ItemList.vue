@@ -1,19 +1,28 @@
 <template>
   <div class="item-list">
-    <form class="item-create" @submit.prevent="submitCreate">
-      <b-form-input
-        ref="createInput"
-        v-model="newTitle"
-        size="sm"
-        :placeholder="`New ${kindLabel} title`"
-        maxlength="120"
-      />
-      <b-button type="submit" size="sm" variant="primary" :disabled="!newTitle.trim()">
-        Add
-      </b-button>
+    <form class="item-create" novalidate @submit.prevent="submitCreate">
+      <div class="item-create-row">
+        <b-form-input
+          ref="createInput"
+          v-model="newTitle"
+          size="sm"
+          :placeholder="`New ${kind} title`"
+          maxlength="120"
+          :aria-label="`New ${kind} title`"
+          :aria-describedby="createHint ? hintId : null"
+          :state="createHint ? false : null"
+          @input="createHint = false"
+        />
+        <b-button type="submit" size="sm" variant="primary" class="item-create-btn">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i> New
+        </b-button>
+      </div>
+      <p v-if="createHint" :id="hintId" class="item-create-hint" role="alert">
+        Give it a title first
+      </p>
     </form>
 
-    <p v-if="!items.length" class="item-empty">No {{ kindLabel }}s yet.</p>
+    <p v-if="!items.length" class="item-empty">No {{ kind }}s yet.</p>
 
     <ul class="item-rows">
       <li
@@ -21,47 +30,64 @@
         :key="item._id"
         class="item-row"
         :class="{ selected: String(item._id) === String(selectedId) }"
-        @click="$emit('select', String(item._id))"
       >
         <form
           v-if="renamingId === String(item._id)"
           class="item-rename"
           @submit.prevent="submitRename(item)"
-          @click.stop
         >
           <b-form-input
             ref="renameInput"
             v-model="renameTitle"
             size="sm"
             maxlength="120"
-            @keydown.esc="cancelRename"
-            @blur="cancelRename"
+            :aria-label="`Rename ${item.title}`"
+            @keydown.esc.prevent.stop="cancelRename"
+            @blur="submitRename(item)"
           />
         </form>
-        <span v-else class="item-title" :title="item.title">{{ item.title }}</span>
+        <router-link
+          v-else
+          :to="pathFor(item)"
+          class="item-link"
+          :title="item.title"
+          :aria-current="String(item._id) === String(selectedId) ? 'page' : null"
+        >
+          <span class="item-title">{{ item.title }}</span>
+          <span v-if="(viewers[item._id] || []).length" class="item-viewers">
+            <UserAvatar
+              v-for="member in viewers[item._id]"
+              :key="member.userId"
+              :username="member.username"
+              :userId="String(member.userId)"
+              :src="member.profilePictureUrl || ''"
+              :size="20"
+            />
+          </span>
+        </router-link>
 
-        <div v-if="(viewers[item._id] || []).length" class="item-viewers" title="Open now">
-          <UserAvatar
-            v-for="member in viewers[item._id]"
-            :key="member.userId"
-            :username="member.username"
-            :userId="String(member.userId)"
-            :src="member.profilePictureUrl || ''"
-            :size="20"
-          />
-        </div>
-
-        <div class="item-actions" @click.stop>
-          <b-button size="sm" variant="link" title="Rename" @click="startRename(item)">
-            <i class="fas fa-pen"></i>
-          </b-button>
-          <b-button size="sm" variant="link" title="Delete" @click="confirmDelete(item)">
-            <i class="fas fa-trash"></i>
-          </b-button>
-        </div>
+        <b-dropdown
+          right
+          no-caret
+          variant="link"
+          size="sm"
+          class="item-menu"
+          toggle-class="item-menu-toggle"
+          :aria-label="`${kindTitle} actions`"
+        >
+          <template #button-content>
+            <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+            <span class="sr-only">{{ kindTitle }} actions for {{ item.title }}</span>
+          </template>
+          <b-dropdown-item-button @click="startRename(item)">
+            <i class="fa-solid fa-pen fa-fw" aria-hidden="true"></i> Rename
+          </b-dropdown-item-button>
+          <b-dropdown-item-button variant="danger" @click="confirmDelete(item)">
+            <i class="fa-solid fa-trash fa-fw" aria-hidden="true"></i> Delete…
+          </b-dropdown-item-button>
+        </b-dropdown>
       </li>
     </ul>
-
   </div>
 </template>
 
@@ -69,6 +95,9 @@
 import UserAvatar from "@/components/workspaces/UserAvatar.vue";
 import { confirmDanger } from "@/workspaces/confirm";
 import { viewersById } from "@/workspaces/items";
+import { parseWorkspaceRoute, workspacePath } from "@/workspaces/workspaceRoute";
+
+let uid = 0;
 
 export default {
   name: "ItemList",
@@ -95,16 +124,34 @@ export default {
   data() {
     return {
       newTitle: "",
+      createHint: false,
+      hintId: `item-create-hint-${++uid}`,
       renamingId: null,
       renameTitle: "",
     };
   },
   computed: {
-    kindLabel() {
-      return this.kind;
+    kindTitle() {
+      return this.kind === "document" ? "Document" : "Whiteboard";
     },
+    meId() {
+      const user = this.$store.state.connectedUser;
+      return user ? String(user._id) : null;
+    },
+    // Others with each item open (me excluded, one avatar per person).
     viewers() {
-      return viewersById(this.members, this.kind);
+      const map = viewersById(this.members, this.kind);
+      const out = {};
+      Object.keys(map).forEach((id) => {
+        const seen = new Set();
+        out[id] = map[id].filter((m) => {
+          const userId = String(m.userId);
+          if (userId === this.meId || seen.has(userId)) return false;
+          seen.add(userId);
+          return true;
+        });
+      });
+      return out;
     },
   },
   methods: {
@@ -113,9 +160,19 @@ export default {
       const input = this.$refs.createInput;
       if (input && input.focus) input.focus();
     },
+    pathFor(item) {
+      const { workspaceId } = parseWorkspaceRoute(this.$route.params);
+      const tab = this.kind === "document" ? "documents" : "whiteboards";
+      return workspacePath({ workspaceId, tab, itemId: String(item._id) });
+    },
     submitCreate() {
       const title = this.newTitle.trim();
-      if (!title) return;
+      if (!title) {
+        this.createHint = true;
+        this.focusCreate();
+        return;
+      }
+      this.createHint = false;
       this.$emit("create", title);
       this.newTitle = "";
     },
@@ -132,7 +189,9 @@ export default {
       this.renamingId = null;
       this.renameTitle = "";
     },
+    // Enter or leaving the field saves; Esc cancels.
     submitRename(item) {
+      if (this.renamingId !== String(item._id)) return;
       const title = this.renameTitle.trim();
       const id = String(item._id);
       this.cancelRename();
@@ -140,7 +199,7 @@ export default {
     },
     async confirmDelete(item) {
       const ok = await confirmDanger(this.$bvModal, {
-        title: `Delete ${this.kindLabel}?`,
+        title: `Delete ${this.kind}?`,
         message: `“${item.title}” will be deleted for everyone in this workspace.`,
         okTitle: "Delete",
       });
@@ -154,17 +213,27 @@ export default {
 .item-list {
   width: 260px;
   flex-shrink: 0;
-  border-right: 1px solid #e5e5e5;
-  padding-right: 12px;
+  align-self: stretch;
+  overflow-y: auto;
 }
 .item-create {
+  margin-bottom: var(--ws-space-3);
+}
+.item-create-row {
   display: flex;
   gap: 6px;
-  margin-bottom: 12px;
+}
+.item-create-btn {
+  white-space: nowrap;
+}
+.item-create-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ws-danger);
 }
 .item-empty {
-  color: gray;
-  font-size: 0.9em;
+  color: var(--ws-text-muted);
+  font-size: 14px;
 }
 .item-rows {
   list-style: none;
@@ -174,19 +243,38 @@ export default {
 .item-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
+  gap: 2px;
+  border-radius: var(--ws-radius-sm);
+  border-left: 3px solid transparent;
 }
 .item-row:hover {
-  background: #f3f3f3;
+  background: rgba(0, 0, 0, 0.04);
 }
 .item-row.selected {
-  background: #e7f0ff;
+  background: var(--ws-accent-soft);
+  border-left-color: var(--ws-accent);
 }
-.item-title,
+.item-link,
 .item-rename {
+  flex: 1;
+  min-width: 0;
+}
+.item-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 4px 7px 8px;
+  color: var(--ws-text);
+  text-decoration: none;
+}
+.item-row.selected .item-link {
+  color: var(--ws-accent-strong);
+  font-weight: 600;
+}
+.item-rename {
+  padding: 3px 4px 3px 6px;
+}
+.item-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -195,18 +283,19 @@ export default {
 }
 .item-viewers {
   display: flex;
+  flex-shrink: 0;
 }
-.item-viewers > * {
+.item-viewers > * + * {
   margin-left: -6px;
 }
-.item-actions {
-  display: flex;
-  opacity: 0.4;
+.item-menu ::v-deep .item-menu-toggle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--ws-text-muted);
 }
-.item-row:hover .item-actions {
-  opacity: 1;
-}
-.item-actions .btn {
-  padding: 0 4px;
+.item-menu ::v-deep .item-menu-toggle:hover {
+  color: var(--ws-text);
+  background: rgba(0, 0, 0, 0.06);
 }
 </style>
