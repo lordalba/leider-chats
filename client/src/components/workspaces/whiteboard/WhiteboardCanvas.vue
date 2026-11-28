@@ -1,50 +1,65 @@
 <template>
   <div class="whiteboard">
-    <div class="wb-toolbar">
-      <div class="wb-colors" role="group" aria-label="Colour">
+    <div class="wb-toolbar" role="toolbar" aria-label="Drawing tools">
+      <div class="wb-group" role="group" aria-label="Colour">
         <button
           v-for="c in colors"
-          :key="c"
+          :key="c.hex"
           type="button"
           class="wb-swatch"
-          :class="{ active: c === color }"
-          :style="{ background: c }"
-          :title="c"
-          @click="color = c"
+          :class="{ active: c.hex === color }"
+          :style="{ background: c.hex }"
+          :title="c.name"
+          :aria-label="c.name"
+          :aria-pressed="c.hex === color ? 'true' : 'false'"
+          @click="color = c.hex"
         ></button>
       </div>
-      <div class="wb-widths" role="group" aria-label="Width">
+      <span class="wb-divider" aria-hidden="true"></span>
+      <div class="wb-group" role="group" aria-label="Line width">
         <button
           v-for="w in widths"
-          :key="w"
+          :key="w.px"
           type="button"
           class="wb-width"
-          :class="{ active: w === width }"
-          :title="`Width ${w}`"
-          @click="width = w"
+          :class="{ active: w.px === width }"
+          :title="w.name"
+          :aria-label="w.name"
+          :aria-pressed="w.px === width ? 'true' : 'false'"
+          @click="width = w.px"
         >
-          <span :style="{ width: w + 'px', height: w + 'px' }"></span>
+          <span :style="{ width: w.px + 2 + 'px', height: w.px + 2 + 'px' }"></span>
         </button>
       </div>
-      <b-button
-        size="sm"
-        variant="outline-secondary"
+      <span class="wb-divider" aria-hidden="true"></span>
+      <button
+        type="button"
+        class="wb-tool"
         :disabled="!opened || !myLastStroke"
+        title="Undo your last stroke (Ctrl+Z)"
+        aria-label="Undo your last stroke (Ctrl+Z)"
         @click="undo"
       >
-        Undo my last stroke
-      </b-button>
-      <b-button
+        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+      </button>
+      <b-dropdown
         v-if="canClear"
+        right
+        no-caret
+        variant="link"
         size="sm"
-        variant="outline-danger"
-        :disabled="!opened"
-        @click="clearBoard"
+        class="wb-more"
+        toggle-class="wb-tool"
+        aria-label="More whiteboard actions"
       >
-        Clear board
-      </b-button>
-      <span v-if="status" class="wb-status">{{ status }}</span>
-      <b-button v-if="openFailed" size="sm" variant="link" @click="open">Retry</b-button>
+        <template #button-content>
+          <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+          <span class="sr-only">More whiteboard actions</span>
+        </template>
+        <b-dropdown-item-button variant="danger" :disabled="!opened" @click="clearBoard">
+          <i class="fa-solid fa-eraser fa-fw" aria-hidden="true"></i> Clear board…
+        </b-dropdown-item-button>
+      </b-dropdown>
     </div>
 
     <div ref="board" class="wb-board">
@@ -57,15 +72,20 @@
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
       ></canvas>
+      <div v-if="status" class="wb-status" :class="'tone-' + statusTone" role="status" aria-live="polite">
+        <span class="wb-status-dot" aria-hidden="true"></span>
+        {{ status }}
+        <button v-if="openFailed" type="button" class="wb-retry" @click="open">Retry</button>
+      </div>
     </div>
-
   </div>
 </template>
 
 <script>
 import { confirmDanger } from "@/workspaces/confirm";
 import { emitWithAck } from "@/workspaces/socketCall";
-import { itemErrorMessage } from "@/workspaces/items";
+import { itemErrorMessage, userColor } from "@/workspaces/items";
+import { WB_COLORS, WB_WIDTHS, isUndoShortcut } from "@/workspaces/whiteboardUi";
 import {
   MAX_STROKE_NUMBERS,
   drawStroke,
@@ -73,8 +93,6 @@ import {
   simplifyPoints,
 } from "@/workspaces/strokes";
 
-const COLORS = ["#000000", "#e53935", "#1e88e5", "#43a047", "#fdd835", "#8e24aa"];
-const WIDTHS = [2, 6, 14];
 const DRAWING_THROTTLE_MS = 50;
 // Remote in-progress strokes whose author vanished mid-stroke are dropped.
 const LIVE_STROKE_TTL_MS = 5000;
@@ -102,14 +120,21 @@ export default {
       type: Boolean,
       default: false,
     },
+    // Presence members, to name the people drawing live.
+    members: {
+      type: Array,
+      default: () => [],
+    },
   },
   data() {
     return {
-      colors: COLORS,
-      widths: WIDTHS,
-      color: COLORS[0],
-      width: WIDTHS[1],
+      colors: WB_COLORS,
+      widths: WB_WIDTHS,
+      color: WB_COLORS[0].hex,
+      width: WB_WIDTHS[1].px,
       status: "Loading…",
+      // Pill colour: "busy" (loading), "warn" (offline), "error".
+      statusTone: "busy",
       // Bumped whenever this.strokes changes, so computed props re-evaluate
       // (the stroke list itself is kept non-reactive for drawing speed).
       strokesVersion: 0,
@@ -124,6 +149,14 @@ export default {
   computed: {
     socket() {
       return this.$store.getters["socket/socket"];
+    },
+    // userId -> username, for the labels on live strokes.
+    namesById() {
+      const map = {};
+      this.members.forEach((m) => {
+        map[String(m.userId)] = m.username;
+      });
+      return map;
     },
     myId() {
       return (this.connectedUser && String(this.connectedUser._id)) || this.learnedUserId;
@@ -154,9 +187,11 @@ export default {
     this.resizeObserver.observe(this.$refs.board);
     this.resize();
     this.liveSweep = setInterval(() => this.sweepLive(), 1000);
+    window.addEventListener("keydown", this.onKeydown);
 
     if (!this.socket) {
       this.status = itemErrorMessage("timeout", "whiteboard");
+      this.statusTone = "error";
       return;
     }
     this.socket.on("wb:stroke", this.onRemoteStroke);
@@ -169,6 +204,7 @@ export default {
   },
   beforeDestroy() {
     this.openSeq++;
+    window.removeEventListener("keydown", this.onKeydown);
     if (this.resizeObserver) this.resizeObserver.disconnect();
     clearInterval(this.liveSweep);
     clearTimeout(this.drawingTimer);
@@ -214,12 +250,24 @@ export default {
       // or socket.io's offline buffer would deliver it before the re-join.
       this.opened = false;
       this.status = "Offline — reconnecting…";
+      this.statusTone = "warn";
     },
     onError(error) {
       const code = error && error.message;
       this.$toast.error(itemErrorMessage(code, "whiteboard"));
-      if (code === "not_found" || code === "forbidden") this.$emit("closed");
-      else this.status = itemErrorMessage(code, "whiteboard");
+      if (code === "not_found" || code === "forbidden") {
+        this.$emit("closed");
+      } else {
+        this.status = itemErrorMessage(code, "whiteboard");
+        this.statusTone = "error";
+      }
+    },
+    onKeydown(event) {
+      if (!isUndoShortcut(event)) return;
+      // Inside a modal (e.g. a confirm), leave the keys alone.
+      if (document.querySelector(".modal.show")) return;
+      event.preventDefault();
+      this.undo();
     },
 
     // ---- canvas sizing & drawing ----
@@ -254,10 +302,33 @@ export default {
       if (!canvas || !this.cssWidth) return;
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, this.cssWidth, this.cssHeight);
-      for (const { stroke } of this.live.values()) {
+      for (const { stroke, userId } of this.live.values()) {
         drawStroke(ctx, stroke, this.cssWidth, this.cssHeight);
+        this.drawNameTag(ctx, stroke, userId);
       }
       if (this.current) drawStroke(ctx, this.current, this.cssWidth, this.cssHeight);
+    },
+    // "bob" next to the end of bob's in-progress stroke.
+    drawNameTag(ctx, stroke, userId) {
+      const name = this.namesById[String(userId)];
+      const pts = stroke.points || [];
+      if (!name || pts.length < 2) return;
+      const x = pts[pts.length - 2] * this.cssWidth + 8;
+      const y = pts[pts.length - 1] * this.cssHeight - 8;
+      ctx.save();
+      ctx.font = "600 12px sans-serif";
+      const w = ctx.measureText(name).width + 12;
+      const left = Math.min(Math.max(0, x), this.cssWidth - w);
+      const top = Math.min(Math.max(0, y - 18), this.cssHeight - 20);
+      ctx.fillStyle = userColor(userId);
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(left, top, w, 20, 10);
+      else ctx.rect(left, top, w, 20);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textBaseline = "middle";
+      ctx.fillText(name, left + 6, top + 10);
+      ctx.restore();
     },
     scheduleOverlay() {
       if (!this.overlayFrame) this.overlayFrame = requestAnimationFrame(() => this.redrawOverlay());
@@ -434,6 +505,7 @@ export default {
       if (this.strokes.some((s) => s.id === payload.strokeId)) return;
       this.live.set(payload.strokeId, {
         stroke: { color: payload.color, width: payload.width, points: payload.points },
+        userId: payload.userId,
         at: Date.now(),
       });
       this.scheduleOverlay();
@@ -457,62 +529,85 @@ export default {
 .whiteboard {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  overflow-y: auto;
 }
 .wb-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: var(--ws-space-2);
+  padding: 6px var(--ws-space-2);
+  margin-bottom: var(--ws-space-2);
+  background: var(--ws-surface);
+  border: 1px solid var(--ws-border);
+  border-radius: var(--ws-radius);
 }
-.wb-colors,
-.wb-widths {
+.wb-group {
   display: flex;
   gap: 4px;
 }
+.wb-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--ws-border);
+}
 .wb-swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #ccc;
-  cursor: pointer;
+  width: 26px;
+  height: 26px;
   padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--ws-surface);
+  box-shadow: 0 0 0 1px var(--ws-border);
+  cursor: pointer;
 }
 .wb-swatch.active {
-  box-shadow: 0 0 0 2px #333;
+  box-shadow: 0 0 0 2px var(--ws-text);
 }
-.wb-width {
-  width: 30px;
-  height: 30px;
-  display: flex;
+.wb-width,
+.wb-more ::v-deep .wb-tool,
+.wb-tool {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: #fff;
-  cursor: pointer;
   padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ws-radius-sm);
+  background: none;
+  color: var(--ws-text);
+  cursor: pointer;
+}
+.wb-width:hover,
+.wb-tool:hover:not(:disabled),
+.wb-more ::v-deep .wb-tool:hover {
+  background: var(--ws-surface-muted);
 }
 .wb-width.active {
-  border-color: #333;
-  background: #eee;
+  border-color: var(--ws-accent);
+  background: var(--ws-accent-soft);
 }
 .wb-width span {
   display: block;
   border-radius: 50%;
-  background: #333;
+  background: var(--ws-text);
 }
-.wb-status {
-  color: gray;
-  font-size: 0.9em;
+.wb-more ::v-deep .wb-tool {
+  text-decoration: none;
+}
+.wb-tool:disabled {
+  color: var(--ws-text-muted);
+  opacity: 0.5;
+  cursor: default;
 }
 .wb-board {
   position: relative;
   width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
+  border: 1px solid var(--ws-border);
+  border-radius: var(--ws-radius);
+  background: var(--ws-surface);
   overflow: hidden;
 }
 .wb-canvas {
@@ -524,5 +619,41 @@ export default {
 .wb-overlay {
   touch-action: none;
   cursor: crosshair;
+}
+.wb-status {
+  position: absolute;
+  top: var(--ws-space-2);
+  left: var(--ws-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--ws-surface-muted);
+  color: var(--ws-text-muted);
+  box-shadow: var(--ws-shadow);
+}
+.wb-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.wb-status.tone-warn {
+  background: var(--ws-warn-soft);
+  color: var(--ws-warn);
+}
+.wb-status.tone-error {
+  background: #fbeaea;
+  color: var(--ws-danger);
+}
+.wb-retry {
+  padding: 0 0 0 4px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
 }
 </style>

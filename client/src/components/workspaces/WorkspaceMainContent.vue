@@ -64,6 +64,7 @@
           :whiteboardId="selectedWbId"
           :connectedUser="connectedUser"
           :canClear="canClearSelectedWb"
+          :members="members"
           @closed="closeItem"
         />
         <EmptyState
