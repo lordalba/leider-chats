@@ -17,7 +17,14 @@
         @focus="(focus) => $emit('focus', focus)"
         @item-event="(event) => $emit('item-event', event)"
       />
-      <div v-else-if="activeTab === 'documents'" class="items-tab">
+      <div
+        v-else-if="activeTab === 'documents'"
+        class="items-tab"
+        :class="{ 'has-item': !!route.itemId }"
+      >
+        <router-link v-if="route.itemId" :to="tabPath" class="item-back" aria-label="All documents">
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Documents
+        </router-link>
         <ItemList
           ref="documentList"
           kind="document"
@@ -47,7 +54,14 @@
           @action="$refs.documentList.focusCreate()"
         />
       </div>
-      <div v-else-if="activeTab === 'whiteboards'" class="items-tab">
+      <div
+        v-else-if="activeTab === 'whiteboards'"
+        class="items-tab"
+        :class="{ 'has-item': !!route.itemId }"
+      >
+        <router-link v-if="route.itemId" :to="tabPath" class="item-back" aria-label="All whiteboards">
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Whiteboards
+        </router-link>
         <ItemList
           ref="whiteboardList"
           kind="whiteboard"
@@ -173,6 +187,10 @@ export default {
     },
     selectedWbId() {
       return this.activeTab === "whiteboards" ? this.route.itemId : null;
+    },
+    // The open tab with nothing selected (phones' back link).
+    tabPath() {
+      return workspacePath({ workspaceId: this.route.workspaceId, tab: this.activeTab });
     },
     tabs() {
       const d = this.detail || {};
@@ -389,6 +407,38 @@ export default {
   .ws-skeleton > div,
   .ws-skeleton-column {
     animation: none;
+  }
+}
+
+.item-back {
+  display: none;
+}
+@media (max-width: 767.98px) {
+  .workspace-main {
+    padding: var(--ws-space-3);
+  }
+  .items-tab {
+    flex-direction: column;
+    gap: var(--ws-space-2);
+  }
+  .items-tab > .item-list {
+    width: 100%;
+  }
+  /* No item open: just the list. An item open: just the item. */
+  .items-tab:not(.has-item) > .empty-state,
+  .items-tab.has-item > .item-list {
+    display: none;
+  }
+  .item-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--ws-accent-strong);
+    text-decoration: none;
+  }
+  .ws-skeleton .ws-skeleton-columns {
+    grid-template-columns: 85vw;
   }
 }
 </style>

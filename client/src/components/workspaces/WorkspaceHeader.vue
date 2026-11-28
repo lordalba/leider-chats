@@ -1,5 +1,8 @@
 <template>
   <header class="ws-header">
+    <router-link to="/workspaces" class="ws-back" aria-label="All workspaces">
+      <i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Workspaces
+    </router-link>
     <div class="ws-header-text">
       <h1 class="ws-header-name" :title="workspace.name">{{ workspace.name }}</h1>
       <p v-if="workspace.description" class="ws-header-description">
@@ -135,5 +138,30 @@ export default {
 .ws-header-actions ::v-deep .ws-header-menu:hover {
   background: var(--ws-surface-muted);
   color: var(--ws-text);
+}
+
+.ws-back {
+  display: none;
+}
+@media (max-width: 767.98px) {
+  .ws-header {
+    flex-wrap: wrap;
+    gap: var(--ws-space-2);
+  }
+  .ws-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    font-size: 14px;
+    color: var(--ws-accent-strong);
+    text-decoration: none;
+  }
+  .ws-header-text {
+    flex: 1;
+  }
+  .ws-header-name {
+    font-size: 20px;
+  }
 }
 </style>

@@ -82,4 +82,21 @@ export default {
   background: var(--ws-accent-soft);
   color: var(--ws-accent-strong);
 }
+
+@media (max-width: 767.98px) {
+  .ws-tabs {
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-bottom: var(--ws-space-3);
+  }
+  .ws-tab {
+    flex: 1 1 0;
+    min-width: max-content;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    font-size: 14px;
+  }
+}
 </style>

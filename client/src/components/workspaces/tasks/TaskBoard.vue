@@ -359,4 +359,15 @@ export default {
 .quick-close {
   color: var(--ws-text-muted) !important;
 }
+
+@media (max-width: 767.98px) {
+  .task-board {
+    scroll-snap-type: x mandatory;
+    gap: var(--ws-space-2);
+  }
+  .task-column {
+    flex: 0 0 85vw;
+    scroll-snap-align: start;
+  }
+}
 </style>

@@ -1,7 +1,17 @@
 <template>
   <header class="header">
     <router-link to="/" class="logo">Leider chats</router-link>
-    <nav class="nav" aria-label="Main">
+    <button
+      type="button"
+      class="menu-toggle"
+      :aria-expanded="menuOpen ? 'true' : 'false'"
+      aria-controls="main-nav"
+      aria-label="Menu"
+      @click="menuOpen = !menuOpen"
+    >
+      <i :class="['fa-solid', menuOpen ? 'fa-xmark' : 'fa-bars']" aria-hidden="true"></i>
+    </button>
+    <nav id="main-nav" class="nav" :class="{ open: menuOpen }" aria-label="Main">
       <ul>
         <li><router-link to="/" exact class="menu-item">Home</router-link></li>
         <li v-if="loggedIn">
@@ -36,6 +46,15 @@ import { clearSession } from "@/auth/session";
 
 export default {
   name: "HeaderComponent",
+  data() {
+    return { menuOpen: false };
+  },
+  watch: {
+    // Following a link closes the phone menu.
+    $route() {
+      this.menuOpen = false;
+    },
+  },
   computed: {
     loggedIn() {
       return Boolean(this.$store.state.connectedUser);
@@ -135,5 +154,54 @@ export default {
 .menu-item:focus-visible {
   outline: none;
   box-shadow: var(--ws-focus);
+}
+
+.menu-toggle {
+  display: none;
+}
+@media (max-width: 767.98px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+  }
+  .logo {
+    font-size: 20px;
+    margin-right: auto;
+  }
+  .header-actions {
+    order: 2;
+  }
+  .menu-toggle {
+    order: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-radius);
+    background: var(--ws-surface);
+    font-size: 18px;
+  }
+  .nav {
+    order: 4;
+    display: none;
+    width: 100%;
+  }
+  .nav.open {
+    display: block;
+  }
+  .nav ul {
+    flex-direction: column;
+    gap: 0;
+  }
+  .menu-item {
+    display: block;
+    padding: 12px 4px;
+  }
+  .menu-item:after {
+    display: none;
+  }
 }
 </style>

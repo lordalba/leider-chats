@@ -1,12 +1,14 @@
 <template>
-  <div class="workspaces-page ws-scope">
+  <div class="workspaces-page ws-scope" :class="{ 'has-workspace': !!workspaceId }">
     <Sidebar
+      class="ws-pane-sidebar"
       :workspaces="workspaces"
       :selectedWorkspaceId="workspaceId"
       :loading="loadingList"
       @create="showCreate = true"
     />
     <MainContent
+      class="ws-pane-main"
       :detail="detail"
       :members="members"
       :loading="loadingDetail"
@@ -311,5 +313,22 @@ export default {
   min-width: 0;
   min-height: 0; /* fills .main-content (App.vue fullHeight); panes scroll */
   overflow: hidden;
+}
+
+/* Phones: the list, or the open workspace — never both squeezed side by side. */
+@media (max-width: 767.98px) {
+  .workspaces-page .ws-pane-sidebar {
+    width: 100%;
+    border-right: none;
+  }
+  .workspaces-page .ws-pane-main {
+    display: none;
+  }
+  .workspaces-page.has-workspace .ws-pane-sidebar {
+    display: none;
+  }
+  .workspaces-page.has-workspace .ws-pane-main {
+    display: block;
+  }
 }
 </style>
