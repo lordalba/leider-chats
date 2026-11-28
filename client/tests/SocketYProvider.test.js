@@ -4,6 +4,16 @@ import { SocketYProvider, MAX_UPDATE_BYTES } from "../src/workspaces/SocketYProv
 
 const DOC = "d1";
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
+// Wait until `check()` is true (or time out): the fake hub relays through
+// chains of 1ms timers, which a fixed tick can outlast on a busy machine.
+async function until(check, timeout = 2000) {
+  const start = Date.now();
+  while (!check()) {
+    if (Date.now() - start > timeout) return false;
+    await tick(5);
+  }
+  return true;
+}
 
 /** Mimics the server: one Y.Doc per hub, relays updates to the other sockets. */
 class FakeHub {
@@ -144,7 +154,7 @@ describe("SocketYProvider", () => {
     const a = await makeProvider(hub);
     const b = await makeProvider(hub);
     a.ydoc.getText("quill").insert(0, "base ");
-    await tick(30);
+    await until(() => text(b.ydoc) === "base ");
 
     b.socket.drop();
     expect(b.provider.synced).toBe(false);
@@ -154,7 +164,9 @@ describe("SocketYProvider", () => {
     expect(text(hub.doc)).not.toContain("offline");
 
     b.socket.reconnect();
-    await tick(50);
+    await until(
+      () => b.provider.synced && text(a.ydoc) === ">base offline" && text(b.ydoc) === ">base offline"
+    );
     expect(b.provider.synced).toBe(true);
     for (const doc of [hub.doc, a.ydoc, b.ydoc]) {
       expect(text(doc).split("offline")).toHaveLength(2);
@@ -198,7 +210,7 @@ describe("SocketYProvider", () => {
     const a = await makeProvider(hub);
     const b = await makeProvider(hub);
     a.provider.awareness.setLocalStateField("user", { name: "alice", color: "#123456" });
-    await tick(30);
+    await until(() => [...b.provider.awareness.getStates().values()].some((s) => s.user));
     const states = [...b.provider.awareness.getStates().values()];
     expect(states).toContainEqual(expect.objectContaining({ user: { name: "alice", color: "#123456" } }));
     a.provider.destroy();
